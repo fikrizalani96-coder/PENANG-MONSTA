@@ -196,7 +196,7 @@ const path = require('path');
   await go('rumah', 3, 4, 'up', ['bukitpanchor', '1']); await talk('A');
   await check('ombak', () => S.bag['CR03 Ombak']);
   await ev(() => { S.party[0].moves = S.party[0].moves.slice(0, 3); }); // ruang untuk jurus
-  await ev(() => { S.party[1] = makeMon('Tempurung', 30); TT.use('CR03 Ombak'); }); await page.waitForTimeout(300); await idle();
+  await ev(() => { S.party[1] = makeMon('Tempurung', 30); [S.party[0], S.party[1]] = [S.party[1], S.party[0]]; S.party[0].moves = S.party[0].moves.slice(0, 3); TT.use('CR03 Ombak'); }); await page.waitForTimeout(300); await idle();
   await check('belajar ombak', () => S.party.some(m => m.moves.some(x => x.id === 'ombak')));
   // Berenang
   await go('nibongtebal', 5, 7, 'left');
