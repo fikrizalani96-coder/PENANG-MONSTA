@@ -154,3 +154,4 @@ const Monet = {
     txt(`EXP ×2 · ${m} min`, SW - INSET.r - 20, 20 + (IS_TOUCH ? 56 : 0), { size: 22, align: 'right', color: '#9fe8a0' });
   }
 };
+window.Monet = Monet;

@@ -135,3 +135,4 @@ const Cloud = {
     const r = await f(data); return r.data;
   }
 };
+window.Cloud = Cloud;

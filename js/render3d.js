@@ -694,4 +694,5 @@ const R3 = {
     return true;
   }
 };
+window.R3 = R3;
 R3.init();

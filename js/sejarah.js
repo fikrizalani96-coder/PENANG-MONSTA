@@ -130,3 +130,4 @@ const Sejarah = {
     if (!gave) await say(`KURATOR: Kamu sudah mengumpul ${c} daripada 12 Serpihan Sejarah. ${c < 12 ? 'Teruskan pencarian! Buka BUKU SEJARAH dalam menu untuk membaca semula kisahnya.' : ''}`);
   }
 };
+window.Sejarah = Sejarah;

@@ -247,9 +247,9 @@ const path = require('path');
   await check('masuk zaman 1', () => World.map.id === 'era1');
   for (let n = 1; n <= 6; n++) {
     await ev(n => { const p = findTile(MAPS['era' + n], '1'); World.load('era' + n, p.x, p.y, 'up'); }, n); await talk('Z');
-    await check('zaman ' + n + ' dikunci sebelum panglima', () => !S.flags['era' + n]);
+    await check('zaman ' + n + ' dikunci sebelum panglima', new Function(`return !S.flags.era${n}`));
     await talk('D'); await talk('Z');
-    await check('zaman ' + n + ' pulih', () => S.flags['era' + n] && S.flags['eraboss' + n]);
+    await check('zaman ' + n + ' pulih', new Function(`return !!(S.flags.era${n} && S.flags.eraboss${n})`));
   }
   await go('lorongmasa', 10, 8, 'up'); await talk('N');
   await check('pendeta kelam', () => S.flags.kelam);
