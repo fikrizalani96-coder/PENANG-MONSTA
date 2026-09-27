@@ -693,9 +693,10 @@ vec3 atl(float i, vec2 p){
     this.sun.intensity = outdoor ? (night ? .45 : 1.3) : m.cave ? .7 : .95;
     this.sun.color.set(night ? 0x9ab0ff : 0xffe4bc);
     this.inside = inside;
-    // --- entiti ---
+    // --- entiti: buang model dari peta sebelumnya (NPC, bola item, pemain, basikal) ---
+    for (const e of (this.ents || new Map()).values()) this.world.remove(e);
+    for (const k of ['player', 'bike', 'surfMon']) if (this[k]) { this.world.remove(this[k]); this[k] = null; }
     this.ents = new Map();
-    this.player = null;
   },
   buildBuildings(m, grid, wg) {
     const W = m.W, H = m.H, seen = new Set();

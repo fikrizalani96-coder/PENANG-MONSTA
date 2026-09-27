@@ -65,6 +65,22 @@
   </div>
 </div>
 
+<div id="saveBox" class="modal hidden" role="dialog" aria-labelledby="saveTitle">
+  <div class="card">
+    <h2 id="saveTitle">Fail Simpanan</h2>
+    <p id="saveStatus"></p>
+    <button id="btnExport" class="btn gold">Eksport ke fail</button>
+    <label for="saveInput" id="btnImport" class="btn">Import dari fail</label>
+    <input id="saveInput" type="file" accept=".json,.monsta,application/json" hidden>
+    <div id="importPreview" class="hidden">
+      <p id="importInfo" class="importInfo"></p>
+      <button id="btnImportOk" class="btn gold">Muat simpanan ini</button>
+    </div>
+    <p class="fine" id="saveNote" aria-live="polite"></p>
+    <button id="saveClose" class="btn ghost">Tutup</button>
+  </div>
+</div>
+
 <div id="toast" class="hidden"></div>
 
 <script src="vendor/three.min.js"></script>
@@ -80,6 +96,7 @@
 <script src="vendor/supabase.js"></script>
 <script src="js/cloud.js"></script>
 <script src="js/monetize.js"></script>
+<script src="js/savefile.js"></script>
 <script src="js/story.js"></script>
 <script src="js/sejarah.js"></script>
 <script src="js/maps/dalam.js"></script>

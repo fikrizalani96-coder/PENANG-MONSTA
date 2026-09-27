@@ -36,6 +36,10 @@ body.portrait #abtn .r{width:84px;height:84px}
 .btn.google{background:#fff;color:#222;display:flex;align-items:center;justify-content:center;gap:10px}
 .btn.google .g{font-weight:800;color:#4285f4;font-size:22px}
 #acctIn{display:flex;flex-direction:column;gap:10px}
+.card label.btn{font:700 19px 'Baloo 2',sans-serif;text-align:center}
+.card label.btn:focus-within{outline:3px solid var(--gold);outline-offset:2px}
+#importPreview{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:12px;background:#0e1830;border:1px solid #ffffff1c}
+.importInfo{font-weight:700;color:var(--gold)}
 .sku{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:12px 14px;border-radius:12px;background:#0e1830;border:1px solid #ffffff1c}
 .sku b{font-size:19px}
 .sku span{font-size:14px;color:var(--dim);grid-column:1}

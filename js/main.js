@@ -104,11 +104,16 @@ async function titleFlow() {
   await p;
   while (true) {
     const save = window.Cloud ? await Cloud.bestSave() : loadGame();
-    const opts = save ? ['SAMBUNG', 'PERMAINAN BARU', 'AKAUN GOOGLE'] : ['PERMAINAN BARU', 'AKAUN GOOGLE'];
-    const R = dlgRect();
-    const c = await UI.choose(opts, { cancel: null, x: SW / 2 - 220, y: SH - INSET.b - (PORTRAIT ? 470 : 320), w: 440 });
+    const opts = save ? ['SAMBUNG', 'PERMAINAN BARU', 'IMPORT SIMPANAN', 'AKAUN GOOGLE'] : ['PERMAINAN BARU', 'IMPORT SIMPANAN', 'AKAUN GOOGLE'];
+    const c = await UI.choose(opts, { cancel: null, x: SW / 2 - 220, y: SH - INSET.b - (PORTRAIT ? 510 : 360), w: 440 });
     const id = opts[c];
     if (id === 'AKAUN GOOGLE') { if (window.Cloud) await Cloud.openPanel(); continue; }
+    if (id === 'IMPORT SIMPANAN') {
+      const imp = await SaveFile.open('title');
+      if (!imp) continue;
+      await fadeTo(1, 3); Game.pop(t);
+      return continueGame(imp);
+    }
     if (id === 'SAMBUNG') {
       const h = Math.floor(save.time / 3600), m = Math.floor(save.time / 60) % 60;
       const ok = await UI.ask(`${save.name} · Lencana ${save.badges.length} · Masa ${h}:${String(m).padStart(2, '0')}${save._cloud ? ' · ☁ awan' : ''}. Teruskan?`, ['YA', 'TIDAK'], { cancel: 1 });
@@ -162,6 +167,7 @@ function boot() {
   Game.fade = 1;
   if (window.Monet) Monet.init();
   if (window.Cloud) Cloud.init();
+  SaveFile.init();
   titleFlow();
 }
 window.addEventListener('error', e => { console.error('Ralat:', e.message); });

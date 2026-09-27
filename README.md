@@ -33,6 +33,8 @@ Tiada pemasangan diperlukan. Buka `index.html` dalam pelayar (Chrome, Firefox, S
 
 Permainan disimpan dalam pelayar (localStorage) melalui **MENU → SIMPAN**.
 
+**Fail simpanan:** **MENU → FAIL SIMPANAN → Eksport ke fail** memuat turun fail `.json` (contoh `monsta-ali-20260927-1534.json`). Untuk menyambung di peranti atau pelayar lain, pilih **IMPORT SIMPANAN** di skrin tajuk. Fail yang rosak atau telah diubah akan ditolak.
+
 ## Jalan cerita
 
 Kamu seorang budak dari **Penaga**. Profesor Meranti memberi kamu Monsta pertama — **Anakpadi** (Rumput), **Percik** (Api) atau **Penyucil** (Air) — dan cucunya **Johan** menjadi pesaing kamu. Kumpulkan lapan lencana gim, tumpaskan **Geng Lanun** pimpinan Datuk Garang, lengkapkan **MONSTADEX**, dan cabar **Empat Perkasa** di puncak Cherok Tok Kun, Bukit Mertajam.

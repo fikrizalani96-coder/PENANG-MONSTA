@@ -14,6 +14,6 @@ const path = require('path');
   await page.waitForTimeout(+waitMs);
   if (shotName) { require('fs').mkdirSync(path.join(__dirname, '..', 'shots'), { recursive: true }); await page.screenshot({ path: path.join(__dirname, '..', 'shots', shotName) }); }
   console.log(r);
-  console.log(errors.slice(0, 15).join('\n'));
+  console.log(errors.slice(0, 80).join('\n'));
   await browser.close();
 })();

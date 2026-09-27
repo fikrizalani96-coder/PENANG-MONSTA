@@ -296,6 +296,7 @@ const Menus = {
       opts.push(S.name); ids.push('card');
       if (window.Sejarah) { opts.push('SEJARAH'); ids.push('sejarah'); }
       opts.push('SIMPAN'); ids.push('save');
+      opts.push('FAIL SIMPANAN'); ids.push('savefile');
       opts.push('KEDAI PREMIUM'); ids.push('premium');
       opts.push('AKAUN'); ids.push('akaun');
       opts.push('PILIHAN'); ids.push('opt');
@@ -309,6 +310,7 @@ const Menus = {
       if (id === 'bag') { const r = await Menus.bag({}); if (r === 'close') return; }
       if (id === 'card') await Menus.card();
       if (id === 'save') { await Menus.save(); return; }
+      if (id === 'savefile') await SaveFile.open('game');
       if (id === 'sejarah') await Sejarah.book();
       if (id === 'premium') await Monet.openShop();
       if (id === 'akaun') await Cloud.openPanel();
@@ -337,11 +339,12 @@ const Menus = {
     }
   },
   async save() {
-    if (await UI.yes('Simpan permainan sekarang?')) {
-      saveGame();
-      Snd.sfx('item');
-      await UI.say('{P} telah menyimpan permainan.');
-    }
+    const c = await UI.ask('Simpan permainan sekarang?', ['SIMPAN', 'SIMPAN + EKSPORT FAIL', 'BATAL'], { cancel: 2 });
+    if (c === 2) return;
+    saveGame();
+    Snd.sfx('item');
+    await UI.say('{P} telah menyimpan permainan.');
+    if (c === 1) await SaveFile.open('game');
   },
   bagList(battle) {
     const names = Object.keys(S.bag).filter(n => S.bag[n] > 0 && ITEMS[n]);
