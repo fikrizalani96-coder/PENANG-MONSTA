@@ -75,6 +75,13 @@ addEventListener('keydown', e => {
   Input.press(k);
 });
 addEventListener('keyup', e => { const k = Input.keymap[e.code]; if (k) Input.release(k); });
+// Penunjuk (tetikus/sentuhan) pada kanvas, dalam koordinat UI logik
+Input.ptr = { x: -1, y: -1, tap: false, moved: false };
+(() => {
+  const toUI = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * SW, y: (e.clientY - r.top) / r.height * SH }; };
+  cv.addEventListener('pointermove', e => { if (!Input.enabled) return; Object.assign(Input.ptr, toUI(e), { moved: true }); });
+  cv.addEventListener('pointerdown', e => { if (!Input.enabled) return; Snd.unlock(); Object.assign(Input.ptr, toUI(e), { tap: true, moved: true }); });
+})();
 addEventListener('blur', () => Input.clear());
 document.querySelectorAll('#touch [data-k]').forEach(b => {
   const k = b.dataset.k;
@@ -157,7 +164,7 @@ function frame(ts) {
   if (Game.fade > 0) { ctx.fillStyle = `rgba(4,6,14,${Game.fade})`; ctx.fillRect(0, 0, SW, SH); }
   if (window.Monet) Monet.drawBadge && Monet.drawBadge();
   Snd.tick();
-  Input.pressed = {};
+  Input.pressed = {}; Input.ptr.tap = false; Input.ptr.moved = false;
   requestAnimationFrame(frame);
 }
 

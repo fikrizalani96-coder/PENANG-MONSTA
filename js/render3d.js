@@ -1280,6 +1280,88 @@ vec3 atl(float i, vec2 p){
     const p = side === 'me' ? this.plats[0].position : this.plats[1].position;
     return this.project(p.x, side === 'me' ? 2.6 : 2.4, p.z, this.bcam);
   },
+  // ---------- Skrin tajuk: padang pantai Seberang Perai waktu senja ----------
+  glowTex(inner, outer, size = 128) {
+    const [c, g] = mkCanvas(size, size); g.imageSmoothingEnabled = true;
+    const gr = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    gr.addColorStop(0, inner); gr.addColorStop(.35, outer); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, size, size);
+    return this.canvasTex(c);
+  },
+  setupTitle() {
+    const s = new THREE.Scene(), T = this.title = { s };
+    s.background = this.skyTex('#1d1340', '#c8587a', '#ffc27a');
+    s.fog = new THREE.Fog(0xe89a86, 20, 75);
+    s.add(new THREE.HemisphereLight(0xffc8d8, 0x3f6a34, .62));
+    const key = new THREE.DirectionalLight(0xffd6a8, 1.45); key.position.set(-6, 8, 9); key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
+    const kc = key.shadow.camera; kc.left = -9; kc.right = 9; kc.top = 9; kc.bottom = -9; kc.far = 40; key.shadow.bias = -.0006; key.shadow.normalBias = .03;
+    s.add(key, key.target);
+    const rim = new THREE.DirectionalLight(0xff9860, 1.3); rim.position.set(3, 5, -14); s.add(rim, rim.target);
+    // tanah: rumput dengan tapak tanah di bawah wira
+    if (this.atlas) {
+      const res = 1, GW = 90, GH = 90, ox = 45, oz = 65, A = new Uint8Array(GW * GH * 4), B = new Uint8Array(GW * GH * 4);
+      for (let j = 0; j < GH; j++) for (let i = 0; i < GW; i++) { const wx = i + .5 - ox, wz = j + .5 - oz; if (Math.hypot(wx * .8, wz) < 2.6) A[(j * GW + i) * 4] = 255; }
+      const g = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), this.groundMat(this.splatTex(GW, GH, A), this.splatTex(GW, GH, B), new THREE.Vector2(ox * res, oz * res), new THREE.Vector2(GW, GH), res, .4));
+      g.rotation.x = -Math.PI / 2; g.position.set(0, 0, -20); g.receiveShadow = true; s.add(g);
+    } else { const g = new THREE.Mesh(new THREE.CircleGeometry(60, 40), this.mat('#6cb445')); g.rotation.x = -Math.PI / 2; g.receiveShadow = true; s.add(g); }
+    // laut senja di kaki langit
+    const sea = new THREE.Mesh(new THREE.PlaneGeometry(260, 70), new THREE.MeshPhongMaterial({ color: 0xe0907a, shininess: 120, specular: 0xffe0b0 }));
+    sea.rotation.x = -Math.PI / 2; sea.position.set(0, .03, -62); s.add(sea);
+    // bukit jauh
+    for (let i = 0; i < 7; i++) { const h = new THREE.Mesh(this.lib.bushG, new THREE.MeshLambertMaterial({ color: 0x5a4a6a, vertexColors: false, fog: true })); h.scale.set(14 + hash(i, 1) * 10, 5 + hash(i, 2) * 5, 8); h.position.set(-50 + i * 17 + hash(i, 3) * 6, -1, -40 - hash(i, 4) * 6); s.add(h); }
+    // matahari, sinar & awan
+    const sun = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex('rgba(255,250,220,1)', 'rgba(255,180,110,.55)'), blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    sun.scale.set(34, 34, 1); sun.position.set(6, 5, -70); s.add(sun);
+    const [rc, rg] = mkCanvas(256, 256); rg.translate(128, 128);
+    for (let i = 0; i < 18; i++) { rg.rotate(Math.PI * 2 / 18); const gr = rg.createLinearGradient(0, 0, 128, 0); gr.addColorStop(0, 'rgba(255,220,160,.5)'); gr.addColorStop(1, 'rgba(255,220,160,0)'); rg.fillStyle = gr; rg.beginPath(); rg.moveTo(0, 0); rg.lineTo(128, -7 - (i % 3) * 3); rg.lineTo(128, 7 + (i % 3) * 3); rg.fill(); }
+    T.rays = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.canvasTex(rc), blending: THREE.AdditiveBlending, depthWrite: false, fog: false, opacity: .55 }));
+    T.rays.scale.set(95, 95, 1); T.rays.position.copy(sun.position); s.add(T.rays);
+    for (let i = 0; i < 10; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.cloudTex, transparent: true, depthWrite: false, fog: false, color: i % 2 ? 0xffc0c8 : 0xffd8b0, opacity: .8 })); const sc = 12 + hash(i, 40) * 14; sp.scale.set(sc, sc / 2, 1); sp.position.set((hash(i, 41) - .5) * 120, 12 + hash(i, 42) * 12, -55 - hash(i, 43) * 12); s.add(sp); }
+    // hiasan: pokok, semak, rumput, bunga
+    const I = this.instBuilder(), add = I.add, R = (i, k) => hash(i, k, 77);
+    const FLW = [0xffffff, 0xfff1a0, 0xffa4b4, 0xffd24a];
+    const clear = (x, z) => Math.hypot(x * .8, z) < 2.8;
+    for (let i = 0; i < (this.hi ? 1100 : 450); i++) { const x = (R(i, 1) - .5) * 40, z = 7 - R(i, 2) * 30; if (clear(x, z)) continue; const sc = .9 + R(i, 3) * .8; add(i % 3 ? 'tuft' : 'tuft2', x, 0, z, sc, sc, sc, 0xffe0c8, R(i, 4) * 6); }
+    for (let i = 0; i < 180; i++) { const x = (R(i, 5) - .5) * 36, z = 6 - R(i, 6) * 24; if (clear(x, z)) continue; add('flower', x, 0, z, 1.3, 1.1, 1.3, FLW[i % FLW.length], R(i, 7) * 6); }
+    for (let i = 0; i < 34; i++) {
+      const side = i % 2 ? 1 : -1, x = side * (6 + R(i, 8) * 16), z = -3 - R(i, 9) * 16, sc = 1.6 + R(i, 10) * 1.4;
+      add('trunk', x, 0, z, sc, sc, sc, 0xffd8c0, R(i, 11) * 6); add('canopy', x, .45 * sc, z, sc, sc, sc, 0xffd8c8, R(i, 12) * 6);
+    }
+    for (let i = 0; i < 12; i++) { const x = (i % 2 ? 1 : -1) * (4 + R(i, 13) * 4), z = -1 - R(i, 14) * 4, sc = 1.3 + R(i, 15); add('bush', x, 0, z, sc, sc * .9, sc, 0xffe0d0, R(i, 16) * 6); }
+    for (let i = 0; i < 6; i++) { const x = (i % 2 ? 1 : -1) * (3 + R(i, 17) * 5), z = 2 - R(i, 18) * 6, sc = .3 + R(i, 19) * .5; add('rock', x, sc * .25, z, sc * 1.3, sc, sc, 0xffe8e0, R(i, 20) * 6); }
+    I.build(s);
+    // wira: tiga Monsta pemula dan Jentayu
+    T.heroes = [['Anakpadi', -2.1, .5, .35], ['Percik', 0, 0, 0], ['Penyucil', 2.1, .5, -.35]].map(([n, x, z, ry], k) => { const m = this.voxel(n, 1.55); m.position.set(x, 0, z); m.rotation.y = ry; m.userData.k = k; s.add(m); return m; });
+    T.bird = this.voxel('Jentayu', 1.9); T.bird.position.set(-.3, 3.4, -6); s.add(T.bird);
+    // kunang-kunang
+    const N = 140, pos = new Float32Array(N * 3); T.pv = [];
+    for (let i = 0; i < N; i++) { pos[i * 3] = (R(i, 30) - .5) * 20; pos[i * 3 + 1] = R(i, 31) * 6; pos[i * 3 + 2] = 4 - R(i, 32) * 16; T.pv.push(.2 + R(i, 33) * .5); }
+    const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    T.parts = new THREE.Points(pg, new THREE.PointsMaterial({ size: .22, map: this.glowTex('rgba(255,255,220,1)', 'rgba(255,220,120,.6)', 64), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffe8a0 }));
+    s.add(T.parts);
+    T.cam = new THREE.PerspectiveCamera(40, 1, .1, 300);
+  },
+  // intro: 0..1 (dolly kamera masuk); kembali kedudukan skrin kepala wira untuk susun atur UI
+  drawTitle(t, intro = 1) {
+    if (!this.ok) return false;
+    Game.used3d = true;
+    if (!this.title) this.setupTitle();
+    const T = this.title, dt = Game.dt || .016;
+    T.heroes.forEach((m, k) => { const b = Math.max(0, Math.sin(t * 2.4 + k * 1.3)); m.position.y = b * .12; const q = 1 + b * .04; m.scale.set(1 / Math.sqrt(q), q, 1 / Math.sqrt(q)); m.rotation.y = [.35, 0, -.35][k] + Math.sin(t * .7 + k) * .12; });
+    if (PORTRAIT) T.bird.position.set(1.7, 2.35 + Math.sin(t * 1.3) * .2, -6.5); else T.bird.position.set(5.4, 1.95 + Math.sin(t * 1.3) * .25, -5.5);
+    T.bird.scale.setScalar(PORTRAIT ? .85 : 1); T.bird.rotation.y = Math.sin(t * .4) * .3; T.bird.rotation.z = Math.sin(t * 1.3) * .05;
+    const p = T.parts.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) { let y = p.getY(i) + T.pv[i] * dt; if (y > 6.5) y = 0; p.setY(i, y); p.setX(i, p.getX(i) + Math.sin(t + i) * .004); }
+    p.needsUpdate = true;
+    T.rays.material.rotation = t * .04;
+    const por = PORTRAIT, e = 1 - Math.pow(1 - Math.min(1, intro), 3);
+    const cam = T.cam; cam.aspect = this.aspect; cam.fov = por ? 58 : 38; cam.updateProjectionMatrix();
+    const a = Math.sin(t * .13) * .22, Rr = (por ? 13 : 11) + (1 - e) * 10;
+    cam.position.set(Math.sin(a) * Rr, (por ? 3.4 : 2.9) + (1 - e) * 4, Math.cos(a) * Rr + .5);
+    cam.lookAt(0, por ? .1 : .75, -1);
+    this.present(T.s, cam, por ? .62 : .55, .24, 1.3);
+    return true;
+  },
   // ---------- Pameran (skrin tajuk, evolusi, Monstadex) ----------
   setupShow() {
     const s = this.show;

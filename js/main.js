@@ -1,35 +1,176 @@
 'use strict';
 // ===== Skrin tajuk, permainan baru, tamat =====
-const TITLE_MONS = ['Nagabara', 'Garuda', 'Meriampenyu', 'Jentayu', 'Sawahraja', 'Nagatasik', 'Tupaipetir', 'Kelembai', 'Nagaraja', 'Hulubalang'];
-function titleText(y) {
-  const big = PORTRAIT ? 120 : 150;
+// ---------- Logo tajuk: MONSTA emas timbul, reben SEBERANG PERAI, cogan JEJAK SEJARAH ----------
+const Logo = {
+  W: 980, H: 230, BASE: 180, SIZE: 176,
+  fill: null,
+  // lapisan emas + kilauan bergerak dilukis pada kanvas luar skrin
+  gold(t) {
+    if (!this.fill) { this.fill = mkCanvas(this.W, this.H); this.fill[1].imageSmoothingEnabled = true; }
+    const [c, g] = this.fill, W = this.W, H = this.H;
+    g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, W, H);
+    g.font = `800 ${this.SIZE}px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    const gr = g.createLinearGradient(0, this.BASE - this.SIZE * .72, 0, this.BASE);
+    gr.addColorStop(0, '#fffbe6'); gr.addColorStop(.38, '#ffd966'); gr.addColorStop(.62, '#f0a22a'); gr.addColorStop(1, '#b8601a');
+    g.fillStyle = gr; g.fillText('MONSTA', W / 2, this.BASE);
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = 'rgba(255,255,255,.28)'; g.fillRect(0, 0, W, this.BASE - this.SIZE * .42);
+    const sx = ((t * .42) % 1.8 - .4) * W;
+    const sh = g.createLinearGradient(sx - 90, 0, sx + 90, 0);
+    sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(.5, 'rgba(255,255,255,.85)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+    g.save(); g.transform(1, 0, -.35, 1, 0, 0); g.fillStyle = sh; g.fillRect(sx - 90, 0, 180 + H, H); g.restore();
+    return c;
+  },
+  // lukis logo berpusat pada (cx, top) dengan skala k
+  draw(cx, top, k, t, alpha = 1) {
+    const S0 = this.SIZE, B = this.BASE;
+    ctx.save(); ctx.globalAlpha = alpha; ctx.translate(cx, top); ctx.scale(k, k);
+    ctx.font = `800 ${S0}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.lineJoin = 'round';
+    ctx.shadowColor = 'rgba(255,150,50,.55)'; ctx.shadowBlur = 50;
+    for (let i = 12; i >= 1; i--) { ctx.fillStyle = i > 8 ? '#261006' : '#6e3812'; ctx.fillText('MONSTA', 0, B + i * 1.3); if (i === 12) ctx.shadowBlur = 0; }
+    ctx.lineWidth = 18; ctx.strokeStyle = '#261006'; ctx.strokeText('MONSTA', 0, B);
+    ctx.lineWidth = 5; ctx.strokeStyle = '#ffe9a8'; ctx.strokeText('MONSTA', 0, B);
+    ctx.drawImage(this.gold(t), -this.W / 2, 0);
+    // kilauan bintang pada huruf
+    const gl = Math.floor(t * .9), ph = (t * .9) % 1;
+    if (ph < .5) {
+      const gx = (hash(gl, 1) - .5) * 600, gy = B - 40 - hash(gl, 2) * 90, r = 22 * Math.sin(ph / .5 * Math.PI);
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.moveTo(gx, gy - r); ctx.quadraticCurveTo(gx, gy, gx + r, gy); ctx.quadraticCurveTo(gx, gy, gx, gy + r); ctx.quadraticCurveTo(gx, gy, gx - r, gy); ctx.quadraticCurveTo(gx, gy, gx, gy - r); ctx.fill();
+    }
+    // reben merah
+    const ry = B + 22, rw = 300, rh = 66;
+    ctx.fillStyle = '#7a0e16';
+    for (const s of [-1, 1]) {
+      ctx.beginPath(); ctx.moveTo(s * (rw - 30), ry + 14); ctx.lineTo(s * (rw + 56), ry + 14); ctx.lineTo(s * (rw + 30), ry + 14 + rh / 2); ctx.lineTo(s * (rw + 56), ry + 14 + rh); ctx.lineTo(s * (rw - 30), ry + 14 + rh); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#4a060c'; ctx.beginPath(); ctx.moveTo(s * rw, ry + rh); ctx.lineTo(s * (rw - 30), ry + 14 + rh); ctx.lineTo(s * rw, ry + 14 + rh); ctx.fill(); ctx.fillStyle = '#7a0e16';
+    }
+    const rg = ctx.createLinearGradient(0, ry, 0, ry + rh);
+    rg.addColorStop(0, '#f0424a'); rg.addColorStop(.5, '#d0202c'); rg.addColorStop(1, '#a01018');
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.moveTo(-rw, ry); ctx.quadraticCurveTo(0, ry - 14, rw, ry); ctx.lineTo(rw, ry + rh); ctx.quadraticCurveTo(0, ry + rh - 14, -rw, ry + rh); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#ffd36a'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(-rw + 8, ry + 7); ctx.quadraticCurveTo(0, ry - 7, rw - 8, ry + 7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-rw + 8, ry + rh - 7); ctx.quadraticCurveTo(0, ry + rh - 21, rw - 8, ry + rh - 7); ctx.stroke();
+    ctx.font = `800 44px ${FONT}`; ctx.lineWidth = 7; ctx.strokeStyle = '#5a0810';
+    ctx.strokeText('SEBERANG PERAI', 0, ry + 47); ctx.fillStyle = '#fff'; ctx.fillText('SEBERANG PERAI', 0, ry + 47);
+    // cogan kata
+    const ty = ry + rh + 44;
+    ctx.font = `800 28px ${FONT}`; ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(30,12,4,.85)';
+    ctx.strokeText('JEJAK  SEJARAH', 0, ty); ctx.fillStyle = '#ffd966'; ctx.fillText('JEJAK  SEJARAH', 0, ty);
+    ctx.fillStyle = '#ffd966';
+    for (const s of [-1, 1]) {
+      ctx.fillRect(s > 0 ? 130 : -230, ty - 12, 100, 3);
+      ctx.save(); ctx.translate(s * 245, ty - 10); ctx.rotate(Math.PI / 4); ctx.fillRect(-6, -6, 12, 12); ctx.restore();
+    }
+    ctx.restore();
+  },
+  height: 410,
+};
+function titleButton(b, sel, t, primary) {
+  const { x, y, w, h } = b;
   ctx.save();
-  setFont(big); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.font = `800 ${Math.round(big * .86)}px ${FONT}`;
-  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillText('MONSTA', SW / 2 + 5, y + 7);
-  const g = ctx.createLinearGradient(0, y, 0, y + big);
-  g.addColorStop(0, '#fff6d0'); g.addColorStop(.5, '#f3c85a'); g.addColorStop(1, '#b8781e');
-  ctx.fillStyle = g; ctx.fillText('MONSTA', SW / 2, y);
-  ctx.lineWidth = 3; ctx.strokeStyle = '#5a2a10'; ctx.strokeText('MONSTA', SW / 2, y);
+  if (sel) { ctx.shadowColor = primary ? 'rgba(255,190,70,.9)' : 'rgba(255,210,120,.7)'; ctx.shadowBlur = 26 + Math.sin(t * 5) * 8; }
+  else { ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 14; }
+  ctx.shadowOffsetY = 4;
+  if (primary) {
+    const g = ctx.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, '#fff0b0'); g.addColorStop(.45, '#f6c850'); g.addColorStop(1, '#c47a18');
+    ctx.fillStyle = g;
+  } else ctx.fillStyle = sel ? 'rgba(40,28,70,.9)' : 'rgba(14,14,36,.72)';
+  rr(x, y, w, h, h / 2); ctx.fill();
   ctx.restore();
-  txt('SEBERANG PERAI', SW / 2, y + big * .92, { size: PORTRAIT ? 44 : 52, align: 'center', color: '#fff' });
-  txt('JEJAK SEJARAH', SW / 2, y + big * .92 + (PORTRAIT ? 48 : 56), { size: 26, align: 'center', color: THEME.accent });
+  ctx.lineWidth = sel ? 4 : 2;
+  ctx.strokeStyle = primary ? '#5a2e08' : sel ? '#ffd966' : 'rgba(255,217,102,.45)';
+  rr(x + 1, y + 1, w - 2, h - 2, h / 2 - 1); ctx.stroke();
+  if (primary) { ctx.fillStyle = 'rgba(255,255,255,.35)'; rr(x + 10, y + 5, w - 20, h * .36, h * .18); ctx.fill(); }
+  const tc = primary ? '#3a1e04' : '#fff';
+  const hasSub = !!b.it.sub;
+  const fs = primary ? (PORTRAIT ? 40 : 36) : (PORTRAIT ? 30 : 26);
+  const cy = y + h / 2 - (hasSub ? 12 : 0);
+  ctx.save(); ctx.font = `800 ${fs}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = tc; ctx.fillText((b.it.icon ? b.it.icon + '  ' : '') + b.it.label, x + w / 2, cy + 2);
+  if (hasSub) { ctx.font = `600 ${primary ? 21 : 18}px ${FONT}`; ctx.fillStyle = primary ? '#6a3e0e' : '#c8c0e8'; ctx.fillText(b.it.sub, x + w / 2, cy + fs * .72); }
+  ctx.restore();
+  if (sel) { const bob = Math.sin(t * 8) * 4; ctx.fillStyle = primary ? '#3a1e04' : '#ffd966'; ctx.beginPath(); ctx.moveTo(x + 22 + bob, y + h / 2 - 11); ctx.lineTo(x + 38 + bob, y + h / 2); ctx.lineTo(x + 22 + bob, y + h / 2 + 11); ctx.fill(); }
 }
 class TitleScene {
-  constructor(res) { this.res = res; this.t = 0; this.k = 0; this.ready = false; }
+  constructor() { this.t = 0; this.items = null; this.sel = 0; this.boxes = []; this.res = null; this.menuT = 0; this.flash = 0; this.landed = false; }
+  menu(items) { const keep = this.items && this.items[this.sel] && items.findIndex(i => i.id === this.items[this.sel].id); this.items = items; this.sel = keep > 0 ? keep : 0; return new Promise(r => { this.res = r; }); }
+  get intro() { return clamp((this.t - .3) / .8, 0, 1); }
   update(dt) {
     this.t += dt;
-    if (this.t > 4.5) { this.t = 0; this.k = (this.k + 1) % TITLE_MONS.length; }
-    if (!this.ready && (Input.pressed.a || Input.pressed.start)) { this.ready = true; Snd.sfx('beep'); this.res(); }
+    if (this.items) this.menuT += dt;
+    if (!this.landed && this.intro >= 1) { this.landed = true; this.flash = .7; Snd.sfx('level'); }
+    this.flash = Math.max(0, this.flash - dt * 1.6);
+    if (!this.items || !this.res) return;
+    if (this.t < 1 && (Input.pressed.a || Input.pressed.start || Input.ptr.tap)) { this.t = 1.2; return; } // langkau intro
+    const n = this.items.length;
+    if (Input.pressed.up || Input.pressed.left) { this.sel = (this.sel + n - 1) % n; Snd.sfx('move'); }
+    if (Input.pressed.down || Input.pressed.right) { this.sel = (this.sel + 1) % n; Snd.sfx('move'); }
+    const P = Input.ptr;
+    if (P.moved || P.tap) {
+      const i = this.boxes.findIndex(b => P.x >= b.x && P.x <= b.x + b.w && P.y >= b.y && P.y <= b.y + b.h);
+      if (i >= 0 && i !== this.sel && !P.tap && !IS_TOUCH) { this.sel = i; Snd.sfx('move'); }
+      if (i >= 0 && P.tap) { this.sel = i; this.choose(); return; }
+    }
+    if (Input.pressed.a || Input.pressed.start) this.choose();
+  }
+  choose() { if (!this.res || this.t < 1.1) return; Snd.sfx('beep'); const r = this.res; this.res = null; r(this.items[this.sel].id); }
+  layout() {
+    const items = this.items || [], boxes = [];
+    const bottom = SH - INSET.b - (PORTRAIT ? 70 : 44);
+    const avail = SW - INSET.l - INSET.r, cx = INSET.l + avail / 2;
+    if (!items.length) return boxes;
+    const primary = items[0], rest = items.slice(1);
+    if (PORTRAIT) {
+      const w = Math.min(620, avail - 60), h2 = 74, gap = 14, h1 = primary.sub ? 110 : 96;
+      let y = bottom - rest.length * (h2 + gap) - h1 - 8;
+      boxes.push({ x: cx - w / 2, y, w, h: h1, it: primary }); y += h1 + gap + 8;
+      for (const it of rest) { boxes.push({ x: cx - w / 2 + 20, y, w: w - 40, h: h2, it }); y += h2 + gap; }
+    } else {
+      const h1 = primary.sub ? 92 : 80, h2 = 60, gap = 16;
+      const w2 = Math.min(300, (avail - 60 - gap * (rest.length - 1)) / rest.length), rowW = w2 * rest.length + gap * (rest.length - 1);
+      const y2 = bottom - h2, y1 = y2 - 18 - h1, w1 = Math.min(560, avail - 60);
+      boxes.push({ x: cx - w1 / 2, y: y1, w: w1, h: h1, it: primary });
+      rest.forEach((it, i) => boxes.push({ x: cx - rowW / 2 + i * (w2 + gap), y: y2, w: w2, h: h2, it }));
+    }
+    return boxes;
   }
   draw() {
-    if (!(R3.ok && R3.drawShow(TITLE_MONS[this.k], { rot: Game.t * .5, y: PORTRAIT ? -1 : 1 }))) {
+    const intro = this.intro, t = this.t;
+    if (!(R3.ok && R3.drawTitle(t, clamp(t / 2.6, 0, 1)))) {
       screenBG('#3a2060', '#f89850');
-      ctx.imageSmoothingEnabled = false; ctx.drawImage(monstaSprite(TITLE_MONS[this.k]), SW / 2 - 150, SH * .35, 300, 300); ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingEnabled = false;
+      ['Anakpadi', 'Percik', 'Penyucil'].forEach((n, k) => ctx.drawImage(monstaSprite(n), SW / 2 - 330 + k * 220, SH * .42, 220, 220));
+      ctx.imageSmoothingEnabled = true;
     }
-    titleText(PORTRAIT ? 120 : 34);
-    if (!this.ready && Math.floor(Game.t * 2) % 2 === 0) txt(IS_TOUCH ? 'Sentuh butang A untuk mula' : 'Tekan Z / Enter untuk mula', SW / 2, SH - INSET.b - (PORTRAIT ? 90 : 80), { size: 34, align: 'center' });
-    txt('© Monsta Seberang Perai · Versi 2.0', SW / 2, SH - INSET.b - 36, { size: 20, align: 'center', color: 'rgba(255,255,255,.55)' });
+    // bayang atas & bawah supaya teks jelas
+    let g = ctx.createLinearGradient(0, 0, 0, SH * .38); g.addColorStop(0, 'rgba(10,6,30,.55)'); g.addColorStop(1, 'rgba(10,6,30,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, SW, SH * .38);
+    g = ctx.createLinearGradient(0, SH * .6, 0, SH); g.addColorStop(0, 'rgba(10,6,30,0)'); g.addColorStop(1, 'rgba(10,6,30,.7)');
+    ctx.fillStyle = g; ctx.fillRect(0, SH * .6, SW, SH * .4);
+    // logo
+    const avail = SW - INSET.l - INSET.r;
+    const k0 = PORTRAIT ? Math.min(.8, (avail - 40) / 760) : .62;
+    const top = PORTRAIT ? 70 + (IS_TOUCH ? 40 : 0) : 14;
+    if (intro > 0) {
+      const e = intro < 1 ? 1 + 2.2 * Math.pow(1 - intro, 3) - .15 * Math.sin(intro * Math.PI) : 1;
+      const float = this.landed ? Math.sin(t * 1.4) * 4 : 0;
+      Logo.draw(INSET.l + avail / 2, top + float, k0 * e, t, Math.min(1, intro * 1.6));
+    }
+    // menu
+    this.boxes = this.layout();
+    if (this.items && t > 1.1) {
+      const a = clamp((t - 1.1) / .5, 0, 1);
+      ctx.save(); ctx.globalAlpha = a; ctx.translate(0, (1 - a) * 30);
+      this.boxes.forEach((b, i) => titleButton(b, i === this.sel, t, i === 0));
+      ctx.restore();
+    }
+    const foot = IS_TOUCH ? 'Sentuh pilihan untuk bermula' : '↑ ↓ pilih  ·  Z / Enter mula  ·  atau klik';
+    txt(foot, SW / 2, SH - INSET.b - (PORTRAIT ? 50 : 30), { size: 18, align: 'center', color: 'rgba(255,255,255,.7)' });
+    txt('© Monsta Seberang Perai · Versi 2.1', SW - INSET.r - 16, SH - INSET.b - (PORTRAIT ? 26 : 26), { size: 15, align: 'right', color: 'rgba(255,255,255,.45)', shadow: false });
+    if (this.flash > 0) { ctx.fillStyle = `rgba(255,244,220,${this.flash})`; ctx.fillRect(0, 0, SW, SH); }
   }
 }
 class IntroScene {
@@ -95,29 +236,29 @@ async function continueGame(s) {
 }
 async function titleFlow() {
   Game.scenes = [];
-  let res;
-  const p = new Promise(r => res = r);
-  const t = new TitleScene(res);
+  const t = new TitleScene();
   Game.push(t);
   Snd.music('tajuk');
   await fadeTo(0, 2);
-  await p;
   while (true) {
     const save = window.Cloud ? await Cloud.bestSave() : loadGame();
-    const opts = save ? ['SAMBUNG', 'PERMAINAN BARU', 'IMPORT SIMPANAN', 'AKAUN GOOGLE'] : ['PERMAINAN BARU', 'IMPORT SIMPANAN', 'AKAUN GOOGLE'];
-    const c = await UI.choose(opts, { cancel: null, x: SW / 2 - 220, y: SH - INSET.b - (PORTRAIT ? 510 : 360), w: 440 });
-    const id = opts[c];
-    if (id === 'AKAUN GOOGLE') { if (window.Cloud) await Cloud.openPanel(); continue; }
-    if (id === 'IMPORT SIMPANAN') {
+    const items = [];
+    if (save) {
+      const h = Math.floor(save.time / 3600), m = Math.floor(save.time / 60) % 60;
+      items.push({ id: 'SAMBUNG', label: 'SAMBUNG', sub: `${save.name} · ${save.badges.length} lencana · ${h}:${String(m).padStart(2, '0')}${save._cloud ? ' · ☁ awan' : ''}` });
+    }
+    items.push({ id: 'BARU', label: 'PERMAINAN BARU', sub: save ? null : 'Mulakan pengembaraan dari Penaga' });
+    items.push({ id: 'IMPORT', label: 'IMPORT SIMPANAN', icon: '⇪' });
+    items.push({ id: 'AKAUN', label: 'AKAUN GOOGLE', icon: '☁' });
+    const id = await t.menu(items);
+    if (id === 'AKAUN') { if (window.Cloud) await Cloud.openPanel(); continue; }
+    if (id === 'IMPORT') {
       const imp = await SaveFile.open('title');
       if (!imp) continue;
       await fadeTo(1, 3); Game.pop(t);
       return continueGame(imp);
     }
     if (id === 'SAMBUNG') {
-      const h = Math.floor(save.time / 3600), m = Math.floor(save.time / 60) % 60;
-      const ok = await UI.ask(`${save.name} · Lencana ${save.badges.length} · Masa ${h}:${String(m).padStart(2, '0')}${save._cloud ? ' · ☁ awan' : ''}. Teruskan?`, ['YA', 'TIDAK'], { cancel: 1 });
-      if (ok !== 0) continue;
       await fadeTo(1, 3); Game.pop(t);
       return continueGame(save);
     }

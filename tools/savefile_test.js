@@ -36,11 +36,12 @@ const path = require('path'), fs = require('fs'), os = require('os');
   // 3) pelayar baharu (tiada simpanan) → skrin tajuk → IMPORT SIMPANAN
   await page.evaluate(() => { localStorage.clear(); });
   await page.goto(url); await page.waitForTimeout(1500);
-  await page.keyboard.press('Enter'); await page.waitForTimeout(500);
-  const opts = await page.evaluate(() => Game.top().opts);
+  await page.waitForFunction(() => Game.top() instanceof TitleScene && Game.top().items && Game.top().t > 1.2, null, { timeout: 15000 });
+  const opts = await page.evaluate(() => Game.top().items.map(i => i.label));
   check('pilihan tajuk ada IMPORT SIMPANAN: ' + opts.join(', '), opts.includes('IMPORT SIMPANAN'));
-  await page.evaluate(() => { const t = Game.top(); t.i = t.opts.indexOf('IMPORT SIMPANAN'); });
-  await page.keyboard.press('KeyZ'); await page.waitForTimeout(400);
+  // klik butang IMPORT pada kanvas (menguji sentuhan/tetikus)
+  const box = await page.evaluate(() => { const t = Game.top(), b = t.boxes.find(b => b.it.id === 'IMPORT'), r = document.getElementById('game').getBoundingClientRect(); return { x: r.left + (b.x + b.w / 2) / SW * r.width, y: r.top + (b.y + b.h / 2) / SH * r.height }; });
+  await page.mouse.click(box.x, box.y); await page.waitForTimeout(400);
   check('tetingkap fail simpanan dibuka (tanpa butang eksport)', await page.isVisible('#saveBox') && !(await page.isVisible('#btnExport')));
   await page.setInputFiles('#saveInput', badFile); await page.waitForTimeout(300);
   let note = await page.textContent('#saveNote');
