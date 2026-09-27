@@ -45,20 +45,11 @@ Write down your final address; the next steps use it as `YOUR_SITE`.
 1. **Log in or sign up:** <https://dashboard.stripe.com/register>. Choose country **Malaysia** and complete business verification (an individual/sole proprietor is fine).
 2. **Payment methods:** <https://dashboard.stripe.com/settings/payment_methods>. Enable Cards and **FPX**, plus GrabPay if you want. Checkout shows every enabled method automatically.
 3. **Secret key:** <https://dashboard.stripe.com/apikeys>. Copy the **Secret key**. Start with test mode (`sk_test_...`); switch to `sk_live_...` when you're ready to take real money.
-4. **Webhook:** <https://dashboard.stripe.com/webhooks> → **Add destination**:
-   - Endpoint URL: `https://aobpmnuvccntrjfsvxgf.supabase.co/functions/v1/stripe-webhook`
-   - Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded`
-   - After saving, copy the **Signing secret** (`whsec_...`).
-5. **Paste both into Supabase:** <https://supabase.com/dashboard/project/aobpmnuvccntrjfsvxgf/functions/secrets>
+4. **Paste it into Supabase:** <https://supabase.com/dashboard/project/aobpmnuvccntrjfsvxgf/functions/secrets> → add a secret named `STRIPE_SECRET_KEY` with that value. It applies immediately.
 
-   | Name | Value |
-   |---|---|
-   | `STRIPE_SECRET_KEY` | `sk_test_...` (later `sk_live_...`) |
-   | `STRIPE_WEBHOOK_SECRET` | `whsec_...` |
-
-   No redeploy is needed; secrets apply immediately.
-6. Test: sign in with Google in the game, open **KEDAI PREMIUM**, buy something and pay with test card `4242 4242 4242 4242` (any future date, any CVC). You return to the game, and the item arrives within a few seconds.
-7. Switching to live mode: repeat steps 3–5 with the live key, and create a live-mode webhook (it has its own `whsec_...`).
+   That's all. The first time someone opens checkout, the server creates the Stripe webhook itself and keeps its signing secret in a private database table. You don't need to create a webhook in Stripe or copy a `whsec_...` value. (If you prefer to create the webhook by hand, set `STRIPE_WEBHOOK_SECRET` as well and the automatic setup is skipped.)
+5. Test: sign in with Google in the game, open **KEDAI PREMIUM**, buy something and pay with test card `4242 4242 4242 4242` (any future date, any CVC). You return to the game, and the item arrives within a few seconds. In Stripe you'll see a webhook named "Monsta Seberang Perai (automatik)".
+6. Switching to live mode: replace `STRIPE_SECRET_KEY` with the `sk_live_...` key. The next checkout creates the live webhook automatically.
 
 Until the Stripe secrets are set, the shop tells players "Kedai Premium belum dibuka".
 

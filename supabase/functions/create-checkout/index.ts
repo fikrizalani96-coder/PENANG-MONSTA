@@ -20,6 +20,31 @@ const envKey = (name: string, legacy: string) => {
   return Deno.env.get(legacy) ?? '';
 };
 
+// Cipta webhook Stripe secara automatik pada kali pertama (atau apabila kunci bertukar antara ujian/langsung),
+// supaya pemilik hanya perlu menetapkan STRIPE_SECRET_KEY. Rahsia webhook disimpan dalam private.app_config.
+const WEBHOOK_EVENTS: Stripe.WebhookEndpointCreateParams.EnabledEvent[] = [
+  'checkout.session.completed', 'checkout.session.async_payment_succeeded', 'charge.refunded',
+];
+async function ensureWebhook(stripe: Stripe, secret: string, supabaseUrl: string) {
+  if (Deno.env.get('STRIPE_WEBHOOK_SECRET')) return; // ditetapkan secara manual
+  const admin = createClient(supabaseUrl, envKey('SUPABASE_SECRET_KEYS', 'SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
+  const mode = secret.includes('_live_') ? 'live' : 'test';
+  const [{ data: whsec }, { data: whMode }] = await Promise.all([
+    admin.rpc('get_app_config', { p_key: 'stripe_webhook_secret' }),
+    admin.rpc('get_app_config', { p_key: 'stripe_webhook_mode' }),
+  ]);
+  if (whsec && whMode === mode) return;
+  const hookUrl = `${supabaseUrl}/functions/v1/stripe-webhook`;
+  // rahsia hanya diberi semasa dicipta, jadi buang titik akhir lama yang sama URL
+  const list = await stripe.webhookEndpoints.list({ limit: 100 });
+  for (const ep of list.data) if (ep.url === hookUrl) await stripe.webhookEndpoints.del(ep.id);
+  const ep = await stripe.webhookEndpoints.create({ url: hookUrl, enabled_events: WEBHOOK_EVENTS, description: 'Monsta Seberang Perai (automatik)' });
+  const r1 = await admin.rpc('set_app_config', { p_key: 'stripe_webhook_secret', p_value: ep.secret! });
+  const r2 = await admin.rpc('set_app_config', { p_key: 'stripe_webhook_mode', p_value: mode });
+  if (r1.error || r2.error) throw r1.error || r2.error;
+  console.log('Webhook Stripe dicipta', ep.id, mode);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'Kaedah tidak dibenarkan.' }, 405);
@@ -60,6 +85,12 @@ Deno.serve(async (req) => {
   }
 
   const stripe = new Stripe(secret);
+  try {
+    await ensureWebhook(stripe, secret, url);
+  } catch (e) {
+    console.error('Gagal menyediakan webhook Stripe', e);
+    return json({ error: 'Kedai Premium belum dapat disediakan. Cuba lagi sebentar.', code: 'webhook_setup' }, 503);
+  }
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     line_items: [{ quantity: 1, price_data: { currency: 'myr', unit_amount: item.sen, product_data: { name: `Monsta Seberang Perai: ${item.name}` } } }],

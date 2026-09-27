@@ -14,8 +14,13 @@ const envKey = (name: string, legacy: string) => {
 const cryptoProvider = Stripe.createSubtleCryptoProvider();
 
 Deno.serve(async (req) => {
-  const secret = Deno.env.get('STRIPE_SECRET_KEY'), whsec = Deno.env.get('STRIPE_WEBHOOK_SECRET');
-  if (!secret || !whsec) return new Response('Belum dikonfigurasi', { status: 503 });
+  const secret = Deno.env.get('STRIPE_SECRET_KEY');
+  if (!secret) return new Response('Belum dikonfigurasi', { status: 503 });
+  const admin = createClient(Deno.env.get('SUPABASE_URL')!, envKey('SUPABASE_SECRET_KEYS', 'SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
+  // rahsia webhook: tetapan manual, atau yang dicipta secara automatik oleh create-checkout
+  let whsec = Deno.env.get('STRIPE_WEBHOOK_SECRET') ?? '';
+  if (!whsec) { const { data } = await admin.rpc('get_app_config', { p_key: 'stripe_webhook_secret' }); whsec = data ?? ''; }
+  if (!whsec) return new Response('Webhook belum disediakan', { status: 503 });
   const stripe = new Stripe(secret);
   const sig = req.headers.get('Stripe-Signature') ?? '';
   const raw = await req.text();
@@ -26,7 +31,6 @@ Deno.serve(async (req) => {
     console.warn('Tandatangan webhook tidak sah', (e as Error).message);
     return new Response('Tandatangan tidak sah', { status: 400 });
   }
-  const admin = createClient(Deno.env.get('SUPABASE_URL')!, envKey('SUPABASE_SECRET_KEYS', 'SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
   try {
     if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
       const s = event.data.object as Stripe.Checkout.Session;
