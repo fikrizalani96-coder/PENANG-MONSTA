@@ -1,5 +1,5 @@
-html,body{margin:0;padding:0;background:#1b1f2a;color:#dfe6f5;font-family:'VT323',monospace;overscroll-behavior:none;touch-action:manipulation}
-#wrap{max-width:720px;margin:0 auto;padding:8px;display:flex;flex-direction:column;align-items:center}
+html,body{margin:0;background:#1b1f2a;color-scheme:dark;color:#dfe6f5;font-family:'VT323',monospace;overscroll-behavior:none;touch-action:manipulation}
+#wrap{max-width:720px;margin:0 auto;padding-block:8px;padding-inline:16px;display:flex;flex-direction:column;align-items:center}
 canvas{width:100%;max-width:720px;aspect-ratio:3/2;background:#000;image-rendering:pixelated;border-radius:6px;box-shadow:0 0 0 4px #394056,0 8px 24px #0008}
 #pad{width:100%;max-width:720px;display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:'d . ab' 'm m m';align-items:center;margin-top:14px;user-select:none;-webkit-user-select:none}
 #pad button{font-family:inherit;border:none;color:#fff;background:#3c455c;box-shadow:0 4px 0 #242a38;touch-action:none;-webkit-tap-highlight-color:transparent}
