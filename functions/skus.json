@@ -1,0 +1,62 @@
+{
+  "buang_iklan": {
+    "name": "Buang Iklan Selamanya",
+    "sen": 2990,
+    "once": true
+  },
+  "pek_bola_hebat": {
+    "name": "Pek 10 Bola Hebat",
+    "sen": 290,
+    "once": false
+  },
+  "pek_bola_ultra": {
+    "name": "Pek 10 Bola Ultra",
+    "sen": 490,
+    "once": false
+  },
+  "bola_sakti": {
+    "name": "Bola Sakti",
+    "sen": 690,
+    "once": false
+  },
+  "pek_rawatan": {
+    "name": "Pek Rawatan",
+    "sen": 390,
+    "once": false
+  },
+  "gula_ajaib": {
+    "name": "5 Gula Ajaib",
+    "sen": 590,
+    "once": false
+  },
+  "batu_evolusi": {
+    "name": "Set Batu Evolusi",
+    "sen": 390,
+    "once": false
+  },
+  "kupang_20k": {
+    "name": "20,000 Kupang",
+    "sen": 290,
+    "once": false
+  },
+  "exp_ganda": {
+    "name": "Penggalak EXP ×2",
+    "sen": 490,
+    "once": false
+  },
+  "kostum_emas": {
+    "name": "Kostum Baju Melayu Emas",
+    "sen": 390,
+    "once": true
+  },
+  "kostum_kebaya": {
+    "name": "Kostum Kebaya Merah",
+    "sen": 390,
+    "once": true
+  },
+  "kostum_harimau": {
+    "name": "Kostum Jersi Harimau",
+    "sen": 390,
+    "once": true
+  }
+}

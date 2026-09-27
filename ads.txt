@@ -1,0 +1,4 @@
+# ads.txt untuk Google AdSense
+# Selepas akaun AdSense diluluskan, padam tanda # pada baris di bawah dan gantikan
+# pub-0000000000000000 dengan ID penerbit kamu (lihat AdSense -> Account -> Account information).
+# google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0

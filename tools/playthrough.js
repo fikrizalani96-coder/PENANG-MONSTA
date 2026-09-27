@@ -7,7 +7,7 @@ const path = require('path');
   const errors = [];
   page.on('console', m => { if ((m.type() === 'error' || m.type() === 'warning') && !m.text().includes('ERR_CERT')) errors.push(m.text()); });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message + ' ' + (e.stack || '').split('\n')[1]));
-  await page.goto('file://' + path.join(__dirname, '..', 'index.html'));
+  await page.goto('file://' + path.join(__dirname, '..', 'index.html') + '?2d');
   await page.waitForTimeout(1200);
   const out = path.join(__dirname, '..', 'shots', 'play');
   require('fs').mkdirSync(out, { recursive: true });
@@ -31,6 +31,7 @@ const path = require('path');
       else if (n === 'QtyScene') Input.pressed.a = true;
       else if (n === 'TitleScene') Input.pressed.a = true;
       else if (['CardScene', 'SummaryScene', 'DexScene'].includes(n)) Input.pressed.b = true;
+      else if (t !== World.scene && t.t > .5) Input.pressed.a = true; // babak tajuk / serpihan sejarah
       Input.held.a = true;
     }, 20);
     window.TT = {
@@ -227,8 +228,34 @@ const path = require('path');
   await ev(() => { giveItem('Batu Api'); S.party.push(makeMon('Kancil', 30)); });
   await ev(() => TT.use('Batu Api')); await page.waitForTimeout(300); await idle();
   await check('evolusi batu', () => S.party.some(m => m.sp === 'Kancilapi' || m.sp === 'Musangraja' || m.sp === 'Bahang' || m.sp === 'Nagabara'));
+  // --- Serpihan Sejarah & Muzium ---
+  await go('guarkepah', 21, 13, 'right'); await talk('§1');
+  await go('penaga', 5, 12, 'down'); await talk('§2');
+  await go('perai', 25, 11, 'right'); await talk('§6');
+  await check('3 serpihan', () => Sejarah.count() === 3);
+  await go('butterworth', 14, 15, 'up'); await step(14, 14, 'up');
+  await check('masuk muzium', () => World.map.id === 'muzium');
+  await talk('A');
+  await check('hadiah kurator', () => S.fragRewards && S.fragRewards[3]);
+  // --- Jejak Sejarah: Lorong Masa ---
+  await go('guabersurat', 9, 10, 'up'); await step(9, 9, 'up');
+  await check('era bermula', () => S.flags.era_mula);
+  await go('guabersurat', 11, 5, 'right'); await step(12, 5, 'right'); await page.waitForTimeout(400); await idle();
+  await ev(() => World.tryMove('right')); await page.waitForTimeout(800); await idle();
+  await check('portal ke lorong masa', () => World.map.id === 'lorongmasa');
+  await go('lorongmasa', 4, 2, 'up'); await ev(() => World.tryMove('up')); await page.waitForTimeout(800); await idle();
+  await check('masuk zaman 1', () => World.map.id === 'era1');
+  for (let n = 1; n <= 6; n++) {
+    await ev(n => { const p = findTile(MAPS['era' + n], '1'); World.load('era' + n, p.x, p.y, 'up'); }, n); await talk('Z');
+    await check('zaman ' + n + ' dikunci sebelum panglima', () => !S.flags['era' + n]);
+    await talk('D'); await talk('Z');
+    await check('zaman ' + n + ' pulih', () => S.flags['era' + n] && S.flags['eraboss' + n]);
+  }
+  await go('lorongmasa', 10, 8, 'up'); await talk('N');
+  await check('pendeta kelam', () => S.flags.kelam);
   await go('guabersurat', 9, 2, 'up'); await talk('Z');
   await check('kelembai', () => S.flags.kelembai);
+  await check('bab', () => S.chapters && S.chapters['BAB 11']);
   // Simpan & muat
   await ev(() => saveGame());
   await check('simpan', () => !!localStorage.getItem(SAVE_KEY));

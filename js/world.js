@@ -50,6 +50,7 @@ const World = {
     this.grid = m.base.map(r => r.slice());
     this.W = m.W; this.H = m.H;
     const [c, g] = mkCanvas(m.W * 16, m.H * 16);
+    if (R3.ok) { R3.buildWorld(m, this.grid); R3.snap = true; }
     for (let yy = 0; yy < m.H; yy++) for (let xx = 0; xx < m.W; xx++) {
       const ch = this.grid[yy][xx];
       if (/\d/.test(ch) || BUILD.has(ch)) drawTile(g, m.outdoor ? (m.under || '.') : (m.under || '_'), xx * 16, yy * 16, xx, yy, m.tileTheme);
@@ -92,6 +93,7 @@ const World = {
       if (d.hid && S.flags[this.itemFlag(mk)]) continue;
       this.objs.push(this.mkObj(d, mk));
     }
+    if (window.Sejarah && S) Sejarah.inject(this);
   },
   mkObj(d, mk) {
     return {
@@ -112,6 +114,7 @@ const World = {
       if (visible) keep.push(cur || this.mkObj(d, mk));
     }
     this.objs = keep;
+    if (window.Sejarah && S) Sejarah.inject(this);
   },
   // ---------- pertanyaan jubin ----------
   tile(x, y) { if (x < 0 || y < 0 || x >= this.W || y >= this.H) return null; return this.grid[y][x]; },
@@ -123,6 +126,7 @@ const World = {
     return isWalkTile(t);
   },
   setTile(x, y, ch) {
+    if (this.grid[y][x] === 't' && R3.ok) R3.cutBush(x, y);
     this.grid[y][x] = ch;
     drawTile(this.g, ch, x * 16, y * 16, x, y, this.map.tileTheme);
   },
@@ -131,6 +135,7 @@ const World = {
     S.time += dt;
     this.updateObjs(dt);
     if (this.banner) { this.banner.t -= dt; if (this.banner.t <= 0) this.banner = null; }
+    if (window.Monet) Monet.tick(dt);
     const p = this.p;
     if (p.moving) { this.stepAnim(dt); return; }
     if (this.busy) return;
@@ -249,7 +254,10 @@ const World = {
     this.busy = true;
     try { await fn(); }
     catch (e) { console.error(e); }
-    finally { this.busy = false; this.refresh(); Input.pressed = {}; }
+    finally {
+      this.busy = false; this.refresh(); Input.pressed = {};
+      if (window.Sejarah && Game.top() === this.scene && Sejarah.pendingChapter()) setTimeout(() => this.run(() => Sejarah.chapterCheck()), 50);
+    }
   },
   async interact() {
     const p = this.p, [dx, dy] = DIRS[p.dir];
@@ -272,6 +280,7 @@ const World = {
   },
   async talk(o) {
     const d = o.def;
+    if (d.frag) { await Sejarah.collect(d.frag); return; }
     if (d.sign) { await UI.say(d.sign); return; }
     if (d.item) {
       const n = d.n || 1;
@@ -348,7 +357,7 @@ const World = {
     Snd.sfx('door');
     const src = this.map, target = MAPS[d.to];
     if (!target) { console.error('warp ke peta tiada', d.to); return; }
-    if (!src.inside && target.inside) S.ret = d.ret ? { map: src.id, x: d.ret[0], y: d.ret[1] } : { map: src.id, x: this.p.x, y: this.p.y + 1 };
+    if (!src.inside && target.inside && !d.keepRet) S.ret = d.ret ? { map: src.id, x: d.ret[0], y: d.ret[1] } : { map: src.id, x: this.p.x, y: this.p.y + 1 };
     if (target.template) S.door = { m: src.id, d: digit };
     let pos;
     if (Array.isArray(d.at)) pos = { x: d.at[0], y: d.at[1] };
@@ -373,6 +382,7 @@ const World = {
     if (key === 'w') { x = B.W - 1; y = p.y + o; dir = 'left'; }
     if (key === 'e') { x = 0; y = p.y + o; dir = 'right'; }
     await this.go(id, x, y, dir, null, false);
+    if (window.Monet) await Monet.interstitial('peta');
   },
   async flyTo(town, m) {
     await UI.say(`${monName(m)} menggunakan TERBANG!`);
@@ -438,6 +448,27 @@ const World = {
   },
   // ---------- lukisan ----------
   draw() {
+    if (R3.ok && R3.drawWorld()) { this.drawOverlay(); return; }
+    this.draw2d();
+    this.drawOverlay();
+  },
+  drawOverlay() {
+    if (R3.ok) for (const o of this.objs) if (o.bang) {
+      const [sx, sy] = R3.project(o.px / 16 + .5, 1.75, o.py / 16 + .5);
+      ctx.fillStyle = '#fff'; rr(sx - 14, sy - 40, 28, 40, 8); ctx.fill();
+      txt('!', sx, sy - 40, { size: 44, align: 'center', color: '#e03030', shadow: false });
+    }
+    if (this.banner) {
+      const a = Math.min(1, this.banner.t * 2, (2.2 - this.banner.t) * 3);
+      ctx.save(); ctx.globalAlpha = Math.max(0, a);
+      setFont(34); const w = ctx.measureText(this.banner.s).width + 64;
+      const x = INSET.l + 16, y = 16 + (IS_TOUCH ? 50 : 0);
+      panel(x, y, w, 58);
+      txt(this.banner.s, x + 32, y + 14, { size: 34, color: THEME.accent });
+      ctx.restore();
+    }
+  },
+  draw2d() {
     const p = this.p;
     const vw = SW / PX, vh = SH / PX;
     let cx = Math.round((p.px + 8 - vw / 2) * PX) / PX, cy = Math.round((p.py + 8 - vh / 2) * PX) / PX;
@@ -455,7 +486,7 @@ const World = {
       const o = e.o, d = o.def;
       if (o.px < cx - 32 || o.px > cx + vw + 16 || o.py < cy - 32 || o.py > cy + vh + 16) continue;
       if (d.sign) ctx.drawImage(signSprite(), o.px, o.py);
-      else if (d.item || d.ball) ctx.drawImage(ballSprite(), o.px, o.py);
+      else if (d.item || d.ball || d.frag) ctx.drawImage(ballSprite(d.frag ? '#e9c46a' : undefined), o.px, o.py);
       else if (d.bar) ctx.drawImage(barSprite(), o.px, o.py);
       else if (d.mon) { const img = monstaSprite(d.mon); ctx.drawImage(img, o.px - 6, o.py - 12, 28, 28); }
       else if (d.boulder) { drawTile(ctx, 'r', o.px, o.py, 0, 0); }
@@ -467,15 +498,6 @@ const World = {
       if (o.bang) { ctx.fillStyle = '#fff'; ctx.fillRect(o.px + 4, o.py - 18, 8, 12); ctx.fillStyle = '#e03030'; ctx.fillRect(o.px + 7, o.py - 16, 2, 6); ctx.fillRect(o.px + 7, o.py - 9, 2, 2); }
     }
     ctx.restore();
-    if (this.banner) {
-      const a = Math.min(1, this.banner.t * 2);
-      ctx.globalAlpha = a;
-      setFont(30); const w = ctx.measureText(this.banner.s).width + 48;
-      ctx.fillStyle = '#6a4a2a'; rr(12, 12, w, 50, 8); ctx.fill();
-      ctx.fillStyle = '#f0e0c0'; rr(16, 16, w - 8, 42, 6); ctx.fill();
-      txt(this.banner.s, 36, 22, { size: 30, color: '#3a2a10' });
-      ctx.globalAlpha = 1;
-    }
   },
   drawGrassOver(x, y) {
     ctx.fillStyle = PAL.tg; ctx.fillRect(x, y + 10, 16, 6);
@@ -599,8 +621,12 @@ async function wildBattle(sp, lv, o = {}) {
 }
 async function blackout() {
   await say('{P} tiada lagi Monsta yang boleh bertarung!');
-  const lost = Math.floor(S.money / 2); S.money -= lost;
-  if (lost) await say(`{P} tercicir RM${lost} ketika melarikan diri...`);
+  let lost = Math.floor(S.money / 2);
+  if (lost >= 200 && window.Monet && await UI.yes(Monet.noAds ? `Guna perlindungan premium untuk mengekalkan ${kupang(lost)}?` : `Tonton satu iklan pendek untuk mengekalkan ${kupang(lost)}?`)) {
+    if (await Monet.rewarded('kekal_wang')) { lost = 0; await say('Wang kamu selamat!'); }
+  }
+  S.money -= lost;
+  if (lost) await say(`{P} tercicir ${kupang(lost)} ketika melarikan diri...`);
   await say('{P} pengsan!');
   for (const m of S.party) healMon(m);
   if (!S.flags.juara) for (const f of ['e1', 'e2', 'e3', 'e4']) delete S.flags[f];
@@ -613,5 +639,6 @@ async function blackout() {
   World.load(h.map, h.x, h.y, 'up', door);
   await fadeTo(0, 3);
   if (h.map !== 'rumah_pemain') await say('Jururawat: Monsta kamu sudah pulih sepenuhnya. Berhati-hati lain kali ya!');
+  if (window.Monet) await Monet.interstitial('pengsan');
   else await say('Mak: Ya Allah, {P}! Kamu tak apa-apa? Mak dah rawat Monsta kamu. Rehatlah dulu.');
 }

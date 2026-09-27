@@ -38,6 +38,10 @@ async function nurse(o) {
     World.music();
     await say('Terima kasih kerana menunggu. Monsta kamu sudah sihat sepenuhnya!');
   }
+  if (window.Monet && (!S.lastReward || S.time - S.lastReward > 900)) {
+    const txtq = Monet.noAds ? 'Ahli premium! Mahu ambil hadiah percuma: 3 BOLA HEBAT?' : 'Tonton satu iklan pendek untuk hadiah 3 BOLA HEBAT?';
+    if (await UI.yes(txtq) && await Monet.rewarded('klinik')) { S.lastReward = S.time; await give('Bola Hebat', 3); }
+  }
   await say('Kami sentiasa menanti kedatangan kamu!');
 }
 async function clerk() {

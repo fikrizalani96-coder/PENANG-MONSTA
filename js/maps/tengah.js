@@ -462,7 +462,7 @@ MAPS.butterworth = {
     'TT..HHHH....HHHH-....HHHH.....TT',
     'TT..HHHH....HHHH-....HHHH.....TT',
     'TT..HH5H....HH6H-....HH7H..i..TT',
-    'TT..............-.............TT',
+    'TT...........l..-.............TT',
     'TT..............-.............TT',
     '~~~~~~~~~~kkk...-.............TT',
     '~~~~~~~~~~kkk...-..WWWW.......TT',
@@ -497,7 +497,7 @@ MAPS.butterworth = {
         D: npc('budak2', 'left', 'Monsta yang disayangi akan lebih bersemangat bertarung!'),
       }
     },
-    6: house({ A: npc('askar', 'down', 'Aku bertugas di Pangkalan Udara Butterworth. Bunyi jet di sini kuat, tapi Monsta Elektrik suka!') }),
+    6: { to: 'muzium' },
     7: house({ A: npc('makcik2', 'down', 'Ubat Nyamuk sangat berguna. Monsta liar yang lemah tak akan dekat dengan kamu.'), I: npc('budak', 'up', 'Ayah aku kerja di pelabuhan. Dia kata Geng Lanun selalu seludup Monsta melalui laut!') }),
     8: { to: 'rumah', lock: () => true, lockText: 'GUDANG PELABUHAN\nKakitangan sahaja.' },
     9: { to: 'kapal', ret: [9, 19], look: 'kapal', lock: () => !S.bag['Tiket Kapal'] || flag('kapal_pergi'), lockText: () => flag('kapal_pergi') ? 'Kapal SERI PERAI sudah belayar ke laut lepas.' : 'KELASI: Maaf, hanya penumpang yang ada TIKET boleh naik kapal SERI PERAI.' },
@@ -506,7 +506,8 @@ MAPS.butterworth = {
     a: sign('BUTTERWORTH\nBandar pelabuhan dan pintu gerbang Seberang Perai.'),
     q: sign('GIM BUTTERWORTH\nKetua: KAPTEN RIZAL\n"Petir yang menyambar dari langit!"'),
     y: sign('PELABUHAN BUTTERWORTH'),
-    i: npc('askar', 'down', 'Pangkalan Udara Butterworth sangat terkenal. Kapten Rizal dulu juruterbang di sana!', { move: 'wander' }),
+    i: npc('askar', 'down', 'Pangkalan Udara Butterworth sangat terkenal. Kapten Rizal dulu juruterbang di sana! Jangan lupa singgah di MUZIUM SEJARAH sebelah sana.', { move: 'wander' }),
+    l: sign('MUZIUM SEJARAH SEBERANG PERAI\nBuka setiap hari. Masuk percuma!'),
     N: npc('nelayan', 'left', () => flag('kapal_pergi') ? 'Kapal SERI PERAI dah belayar. Mungkin ia akan kembali tahun depan.' : 'Kapal SERI PERAI sedang berlabuh. Hanya yang ada tiket boleh naik.'),
   }
 };
@@ -1159,18 +1160,29 @@ MAPS.guabersurat = {
     'xxxxxxxccccccxxx',
     'xxcccccccxxccxxx',
     'xxcxxxxxxxxccxxx',
-    'xxcxxccccccccxxx',
-    'xxcxxcxxxxxxxxxx',
+    'xxcxxcccccccc1xx',
+    'xxcxxcxxxxxcAxxx',
     'xxcccccccccIxxxx',
     'xxxxxxxxxcxxxxxx',
-    'xxxxxxxxxcxxxxxx',
+    'xxxxxxxxxVxxxxxx',
     'xxxxxxxxxExxxxxx',
     'xxxxxxxxxxxxxxxx',
   ],
+  doors: {
+    1: { to: 'lorongmasa', at: '7', look: 'portal', dir: 'right', keepRet: true, lock: () => !flag('era_mula'), lockText: 'Dinding batu ini berukir tulisan purba... tetapi tiada apa-apa berlaku.' },
+  },
   enc: { cave: [['Jembalang', 55, 60, 20], ['Gunungbatu', 55, 60, 20], ['Mahakukang', 55, 58, 15], ['Nagaserpa', 55, 58, 15], ['Keluang', 55, 60, 30]], crate: .1 },
   o: {
+    V: { if: () => flag('juara') && !flag('era_mula'), trig: () => eraIntro() },
+    A: {
+      s: 'prof', d: 'left', show: () => flag('juara'), run: async () => {
+        if (!flag('era_mula')) return eraIntro();
+        if (flag('kelam')) { await say('PROF. MERANTI: Batu bersurat ini kembali tenang. Sejarah kita selamat, {P}. Tapi SANG KELEMBAI masih menunggu di hujung gua...'); return; }
+        await say('PROF. MERANTI: Portal LORONG MASA ada di dinding sebelah kanan saya. Pulihkan keenam-enam Cahaya Sejarah!');
+      }
+    },
     Z: {
-      mon: 'Kelembai', show: () => !flag('kelembai'), run: async () => {
+      mon: 'Kelembai', show: () => !flag('kelembai') && flag('kelam'), run: async () => {
         await say('Sesuatu memerhati kamu dari kegelapan...');
         await say('SANG KELEMBAI: ...');
         await wildBattle('Kelembai', 70);
@@ -1180,6 +1192,19 @@ MAPS.guabersurat = {
     I: item('Semangat Maks'),
   }
 };
+async function eraIntro() {
+  await say('PROF. MERANTI: {P}! Syukurlah kamu datang. Lihat batu bersurat ini... tulisannya bercahaya dan berubah-ubah!');
+  await say('PROF. MERANTI: Tulisan purba ini merekodkan sejarah tanah kita. Tapi sejak semalam, sebahagiannya mula pudar dan hilang!');
+  await say('PROF. MERANTI: Aku menjumpai jejak sekumpulan makhluk yang dipanggil BAYANGAN MASA. Ketua mereka bergelar PENDETA KELAM.');
+  await say('PROF. MERANTI: Mereka membuka LORONG MASA dan sedang mencuri CAHAYA SEJARAH dari enam zaman penting Seberang Perai.');
+  await say('PROF. MERANTI: Jika semua cahaya itu dicuri, orang ramai akan lupa asal-usul mereka... Guar Kepah, Kedah Tua, kemerdekaan, semuanya!');
+  Snd.sfx('level');
+  await say('Dinding di sebelah kanan Profesor bergetar... dan sebuah PORTAL bercahaya terbuka!');
+  await say('PROF. MERANTI: Itu dia, pintu ke LORONG MASA! Kamu Juara Seberang Perai. Hanya kamu yang cukup kuat untuk menghadapi mereka.');
+  await say('PROF. MERANTI: Pergilah, {P}. Aku akan menunggu kamu di Lorong Masa. Selamatkan sejarah kita!');
+  setFlag('era_mula');
+  await UI.chapter('BAB 13', 'Lorong Masa');
+}
 MAPS.laluankemenangan = {
   name: 'Laluan Kemenangan', cave: true, theme: 'gua', border: 'x', under: 'c', escape: true, music: 'gua',
   tiles: [

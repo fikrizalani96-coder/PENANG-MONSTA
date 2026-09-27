@@ -73,16 +73,18 @@ function dexCount() { return [Object.keys(S.dex.seen).length, Object.keys(S.dex.
 class EvoScene {
   constructor(m, to, res) { this.m = m; this.from = m.sp; this.to = to; this.res = res; this.t = 0; this.phase = 0; }
   draw() {
-    ctx.fillStyle = '#f8f8f8'; ctx.fillRect(0, 0, SW, SH);
-    const g = ctx.createRadialGradient(SW / 2, 170, 20, SW / 2, 170, 300);
-    g.addColorStop(0, '#fff8d0'); g.addColorStop(1, '#c8d8f8'); ctx.fillStyle = g; ctx.fillRect(0, 0, SW, SH);
     let name = this.from;
     if (this.phase === 1) { const f = Math.sin(this.t * (4 + this.t * 3)) > 0; name = f ? this.to : this.from; }
     if (this.phase >= 2) name = this.to;
+    if (R3.ok && R3.drawShow(name, { white: this.phase === 1, rot: this.phase === 1 ? this.t * 3 : undefined, y: PORTRAIT ? -1.2 : 0 })) {
+      if (this.phase === 1) { ctx.fillStyle = `rgba(255,250,220,${.15 + .15 * Math.sin(this.t * 10)})`; ctx.fillRect(0, 0, SW, SH); }
+      return;
+    }
+    screenBG('#3a3a7a', '#fff8d0');
     const img = this.phase === 1 ? silhouette(name) : monstaSprite(name);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, SW / 2 - 120, 40, 240, 240);
-    if (this.phase === 1) { for (let i = 0; i < 12; i++) { const a = i / 12 * 6.28 + this.t; ctx.fillStyle = '#fff'; ctx.fillRect(SW / 2 + Math.cos(a) * 150, 160 + Math.sin(a) * 110, 6, 6); } }
+    ctx.drawImage(img, SW / 2 - 150, SH * .15, 300, 300);
+    ctx.imageSmoothingEnabled = true;
   }
 }
 async function evolve(m, to) {

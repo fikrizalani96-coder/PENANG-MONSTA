@@ -7,7 +7,7 @@ const path = require('path');
   const errors = [];
   page.on('console', m => { if ((m.type() === 'error' || m.type() === 'warning') && !m.text().includes('ERR_CERT')) errors.push(m.text()); });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
-  await page.goto('file://' + path.join(__dirname, '..', 'index.html'));
+  await page.goto('file://' + path.join(__dirname, '..', 'index.html') + '?2d');
   await page.waitForTimeout(1200);
   await page.evaluate(() => {
     window.DBG = { win: true };

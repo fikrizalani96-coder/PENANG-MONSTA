@@ -1,0 +1,12 @@
+{
+  "name": "Monsta Seberang Perai",
+  "short_name": "Monsta SP",
+  "description": "Pengembaraan Monsta 3D di Seberang Perai.",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#0b1328",
+  "theme_color": "#0b1328",
+  "lang": "ms",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

@@ -1,0 +1,30 @@
+rules_version = '2';
+// Peraturan keselamatan Firestore untuk Monsta Seberang Perai
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Simpanan permainan: hanya pemilik akaun boleh baca/tulis simpanannya sendiri
+    match /saves/{uid} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.data is string
+        && request.resource.data.data.size() < 800000;
+    }
+    // Profil pembelian: ditulis oleh pelayan (Cloud Functions) sahaja
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+      // Pemain hanya boleh menandakan pembelian sebagai "sudah dituntut" (false -> true)
+      match /purchases/{pid} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow update: if request.auth != null && request.auth.uid == uid
+          && resource.data.claimed == false
+          && request.resource.data.claimed == true
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimed', 'claimedAt']);
+        allow create, delete: if false;
+      }
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

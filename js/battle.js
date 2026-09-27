@@ -38,6 +38,56 @@ class BattleScene {
   }
   update() { }
   draw() {
+    if (R3.ok && R3.drawBattle(this)) { this.drawUI(); return; }
+    legacy(() => this.draw2d(), '#000');
+  }
+  cardPos() {
+    const R = dlgRect();
+    if (PORTRAIT) return { foe: [22 + INSET.l, 26 + (IS_TOUCH ? 60 : 0)], me: [SW - 22 - 400, R.y - 160] };
+    return { foe: [INSET.l + 30, 30], me: [SW - INSET.r - 30 - 400, R.y - 164] };
+  }
+  drawUI() {
+    const P = this.cardPos();
+    if (this.foeVis && this.foe.mon) this.drawCard(this.foe, P.foe[0], P.foe[1], false);
+    if (this.meVis && this.me.mon) this.drawCard(this.me, P.me[0], P.me[1], true);
+    if (this.tr && this.foeTr && this.showBalls) {
+      for (let i = 0; i < this.foeParty.length; i++) { const m = this.foeParty[i]; ctx.drawImage(ballSprite(alive(m) ? '#e03838' : '#707070'), P.foe[0] + 10 + i * 40, P.foe[1] + 10, 34, 34); }
+      for (let i = 0; i < S.party.length; i++) { const m = S.party[i]; ctx.drawImage(ballSprite(alive(m) ? '#e03838' : '#707070'), P.me[0] + 10 + i * 40, P.me[1] + 60, 34, 34); }
+    }
+    if (this.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${this.flash})`; ctx.fillRect(0, 0, SW, SH); }
+    if (!Game.scenes.some(s => s instanceof Dialog || s instanceof ActionMenu || s instanceof MoveMenu)) { const R = dlgRect(); panel(R.x, R.y, R.w, R.h); }
+  }
+  drawCard(side, x, y, mine) {
+    const m = side.mon, w = 400, h = mine ? 138 : 104;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 5;
+    const g = ctx.createLinearGradient(x, y, x + w, y + h);
+    g.addColorStop(0, 'rgba(24,36,70,.93)'); g.addColorStop(1, 'rgba(10,16,34,.93)');
+    ctx.fillStyle = g; rr(x, y, w, h, 16); ctx.fill(); ctx.restore();
+    const tc = TYPE_COLOR[SP[m.sp].types[0]];
+    ctx.fillStyle = tc; rr(x, y, 10, h, 5); ctx.fill();
+    ctx.strokeStyle = 'rgba(233,196,106,.7)'; ctx.lineWidth = 2; rr(x + 1, y + 1, w - 2, h - 2, 15); ctx.stroke();
+    const ghost = this.o.ghost && !mine && !S.bag['Teropong Roh'];
+    txt(ghost ? 'HANTU' : monName(m), x + 26, y + 12, { size: 34 });
+    txt('Tp ' + m.lv, x + w - 22, y + 14, { size: 30, align: 'right', color: THEME.accent });
+    if (!ghost) SP[m.sp].types.forEach((t, k) => { ctx.fillStyle = TYPE_COLOR[t]; rr(x + 26 + k * 92, y + 52, 84, 20, 10); ctx.fill(); txt(t.toUpperCase(), x + 68 + k * 92, y + 50, { size: 18, align: 'center', shadow: false }); });
+    if (m.status) { ctx.fillStyle = STATUS_COL[m.status]; rr(x + 210, y + 52, 60, 20, 10); ctx.fill(); txt(STATUS_NAME[m.status], x + 240, y + 50, { size: 18, align: 'center', shadow: false }); }
+    const hpi = mine ? 0 : 1, mh = maxHp(m), shown = clamp(this.hpShow[hpi], 0, mh), pct = shown / mh;
+    const bx = x + 26, by = y + 80, bw = w - 52;
+    ctx.fillStyle = '#060a16'; rr(bx - 2, by - 2, bw + 4, 18, 9); ctx.fill();
+    const hg = ctx.createLinearGradient(0, by, 0, by + 14);
+    const hc = pct > .5 ? ['#7af07a', '#2fa84a'] : pct > .2 ? ['#ffe07a', '#d8a020'] : ['#ff8a7a', '#c83030'];
+    hg.addColorStop(0, hc[0]); hg.addColorStop(1, hc[1]);
+    ctx.fillStyle = hg; rr(bx, by, Math.max(0, bw * pct), 14, 7); ctx.fill();
+    if (mine) {
+      txt(`${Math.ceil(shown)} / ${mh}`, x + w - 22, y + 98, { size: 26, align: 'right' });
+      const e0 = expFor(m.lv), e1 = expFor(m.lv + 1), ep = clamp((m.exp - e0) / (e1 - e0), 0, 1);
+      ctx.fillStyle = '#060a16'; rr(bx, y + 126, bw * .55, 6, 3); ctx.fill();
+      ctx.fillStyle = '#58b0ff'; rr(bx, y + 126, bw * .55 * ep, 6, 3); ctx.fill();
+      txt('EXP', bx, y + 100, { size: 20, color: '#88c0ff' });
+    }
+  }
+  draw2d() {
     const [sky, sky2, g1, g2] = this.theme;
     const gr = ctx.createLinearGradient(0, 0, 0, SH);
     gr.addColorStop(0, sky); gr.addColorStop(.6, sky2); gr.addColorStop(1, sky);
@@ -286,6 +336,7 @@ class BattleScene {
         const d = Math.max(1, Math.floor(maxHp(m) / (m.status === 'racun' ? 8 : 16)));
         m.hp = Math.max(0, m.hp - d);
         await this.say(`${this.nm(side)} ${m.status === 'racun' ? 'terkena kesan racun' : 'melecur kepanasan'}!`);
+        this.fxType = m.status === 'racun' ? 'Racun' : 'Api';
         await this.blink(side); await this.animHp(side);
       }
       const other = side === this.me ? this.foe : this.me;
@@ -303,6 +354,8 @@ class BattleScene {
   speed(side) { let s = stat(side.mon, 'spe') * stageMul(side.st.spe); if (side.mon.status === 'lumpuh') s /= 2; return s; }
   async blink(side) {
     Snd.sfx('hit');
+    if (R3.ok) R3.fx(this.fxType || 'Biasa', side === this.me ? 'me' : 'foe', this.fxBig);
+    this.fxType = null; this.fxBig = false;
     if (side === this.me) { this.meBlink = 1; await wait(.4); this.meBlink = 0; } else { this.foeBlink = 1; await wait(.4); this.foeBlink = 0; }
   }
   async lunge(side) {
@@ -358,6 +411,7 @@ class BattleScene {
     const dealt = Math.min(D.hp, r.dmg);
     D.hp -= dealt;
     if (r.eff > 1) Snd.sfx('super'); else if (r.eff < 1) Snd.sfx('weak');
+    this.fxType = mv.t; this.fxBig = r.eff > 1 || r.crit;
     await this.blink(def); await this.animHp(def);
     if (r.crit) await this.say('Serangan genting!');
     if (r.eff > 1) await this.say('Sangat berkesan!');
@@ -493,9 +547,10 @@ class BattleScene {
     const f = this.foe.mon, parts = [...this.participants].filter(m => alive(m) && S.party.includes(m));
     if (!parts.length) return;
     const total = Math.floor(SP[f.sp].exp * f.lv / 7 * (this.tr ? 1.5 : 1));
-    const each = Math.max(1, Math.floor(total / parts.length));
+    const mul = window.Monet ? Monet.expMul() : 1;
+    const each = Math.max(1, Math.floor(total / parts.length)) * mul;
     for (const m of parts) {
-      await this.say(`${monName(m)} mendapat ${each} mata EXP!`);
+      await this.say(`${monName(m)} mendapat ${each} mata EXP!${mul > 1 ? ' (×2)' : ''}`);
       await gainExp(m, each, t => this.say(t));
       if (m === this.me.mon) this.hpShow[0] = m.hp;
     }
@@ -512,8 +567,8 @@ class BattleScene {
       await this.say(`{P} membaling ${act.item.toUpperCase()}!`);
       const col = { 'Bola Tangkap': '#e03838', 'Bola Hebat': '#3868e0', 'Bola Ultra': '#e0c030', 'Bola Sakti': '#a040c0' }[act.item];
       Snd.sfx('ball');
-      this.ball = { x: 150, y: 300, col };
-      await this.anim(.5, t => { this.ball.x = 150 + (560 - 150) * t; this.ball.y = 300 - Math.sin(t * Math.PI) * 220 + (120 - 300) * t; });
+      this.ball = { x: 150, y: 300, col, k: 0 };
+      await this.anim(.6, t => { this.ball.k = t; this.ball.x = 150 + (560 - 150) * t; this.ball.y = 300 - Math.sin(t * Math.PI) * 220 + (120 - 300) * t; });
       if (this.o.nocatch || (this.o.ghost && !S.bag['Teropong Roh'])) {
         this.ball = null;
         await this.say(this.o.ghost ? 'Bola itu menembusi HANTU dan jatuh ke lantai!' : 'Bola itu ditepis!');
@@ -522,7 +577,7 @@ class BattleScene {
       this.flash = .6; await wait(.08); this.flash = 0;
       await this.anim(.25, t => this.foeScale = 1 - t * .95);
       this.foeVis = false; this.foeScale = 1;
-      this.ball.y = 170;
+      this.ball.y = 170; this.ball.k = 1;
       const m = this.foe.mon, mh = maxHp(m);
       let shakes = 0, caught = false;
       if (it.ball >= 255) { caught = true; shakes = 3; }
@@ -538,7 +593,8 @@ class BattleScene {
       }
       for (let i = 0; i < shakes; i++) {
         await wait(.35); Snd.sfx('shake');
-        await this.anim(.3, t => this.ball.x = 560 + Math.sin(t * Math.PI * 2) * 10);
+        await this.anim(.3, t => { this.ball.x = 560 + Math.sin(t * Math.PI * 2) * 10; this.ball.wob = Math.sin(t * Math.PI * 2); });
+        this.ball.wob = 0;
       }
       await wait(.3);
       if (caught) {
@@ -598,14 +654,24 @@ class ActionMenu {
     if (Input.pressed.a) { Snd.sfx('beep'); ActionMenu.last = this.i; Game.pop(this); this.res(this.i); }
   }
   draw() {
-    panel(8, SH - 152, SW - 16, 144);
-    const lines = wrapText(`Apa patut ${monName(this.bs.me.mon)} buat?`, 300);
-    lines.slice(0, 3).forEach((l, k) => txt(l, 36, SH - 124 + k * 36));
-    panel(360, SH - 152, SW - 368, 144, true);
-    const opts = ['LAWAN', 'BEG', 'MONSTA', 'LARI'];
-    opts.forEach((o, k) => {
-      const x = 400 + (k % 2) * 150, y = SH - 120 + Math.floor(k / 2) * 50;
-      txt(o, x, y); if (k === this.i) cursor(x - 22, y + 7);
+    const R = dlgRect();
+    const split = PORTRAIT ? 0 : R.w * .42;
+    if (!PORTRAIT) {
+      panel(R.x, R.y, split - 8, R.h);
+      wrapText(`Apa patut ${monName(this.bs.me.mon)} buat?`, split - 70).slice(0, 3).forEach((l, k) => txt(l, R.x + 30, R.y + 24 + k * 38));
+    }
+    const bx = R.x + split, bw = R.w - split;
+    const opts = [['LAWAN', '#e0524a'], ['BEG', '#e0a83a'], ['MONSTA', '#3fae5a'], ['LARI', '#4a8fe0']];
+    const cw = (bw - 12) / 2, ch = (R.h - 12) / 2;
+    opts.forEach(([o, c], k) => {
+      const x = bx + (k % 2) * (cw + 12), y = R.y + Math.floor(k / 2) * (ch + 12);
+      const sel = k === this.i;
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = sel ? 20 : 10;
+      const g = ctx.createLinearGradient(0, y, 0, y + ch);
+      g.addColorStop(0, shade(c, sel ? .25 : 0)); g.addColorStop(1, shade(c, -.35));
+      ctx.fillStyle = g; rr(x, y, cw, ch, 14); ctx.fill(); ctx.restore();
+      ctx.strokeStyle = sel ? '#fff6d8' : 'rgba(255,255,255,.35)'; ctx.lineWidth = sel ? 4 : 2; rr(x + 1, y + 1, cw - 2, ch - 2, 13); ctx.stroke();
+      txt(o, x + cw / 2, y + ch / 2 - 20, { size: 38, align: 'center' });
     });
   }
 }
@@ -622,22 +688,29 @@ class MoveMenu {
     if (Input.pressed.b) { Game.pop(this); this.res(-1); }
   }
   draw() {
+    const R = dlgRect();
     const mv = this.bs.me.mon.moves;
-    panel(8, SH - 152, 470, 144, true);
+    const cw = (R.w - 12) / 2, ch = (R.h - 12) / 2;
+    const foeT = SP[this.bs.foe.mon.sp].types;
     mv.forEach((m, k) => {
-      const x = 50 + (k % 2) * 210, y = SH - 120 + Math.floor(k / 2) * 50;
-      const nm = MOVES[m.id].n; txt(nm.length > 13 ? nm.slice(0, 12) + '.' : nm, x, y, { size: 30 });
-      if (k === this.i) cursor(x - 22, y + 7);
+      const d = MOVES[m.id], c = TYPE_COLOR[d.t];
+      const x = R.x + (k % 2) * (cw + 12), y = R.y + Math.floor(k / 2) * (ch + 12);
+      const sel = k === this.i;
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = sel ? 20 : 8;
+      const g = ctx.createLinearGradient(0, y, 0, y + ch);
+      g.addColorStop(0, shade(c, sel ? .2 : -.05)); g.addColorStop(1, shade(c, -.45));
+      ctx.fillStyle = g; rr(x, y, cw, ch, 14); ctx.fill(); ctx.restore();
+      ctx.strokeStyle = sel ? '#fff6d8' : 'rgba(255,255,255,.3)'; ctx.lineWidth = sel ? 4 : 2; rr(x + 1, y + 1, cw - 2, ch - 2, 13); ctx.stroke();
+      txt(d.n, x + 18, y + 6, { size: 30 });
+      txt(`${d.t.toUpperCase()}  ·  PP ${m.pp}/${d.pp}`, x + 18, y + 38, { size: 20, color: m.pp === 0 ? '#ffb0a8' : 'rgba(255,255,255,.85)' });
+      if (sel && d.p > 0 && !(this.bs.o.ghost && !S.bag['Teropong Roh'])) {
+        const e = typeMul(d.t, foeT);
+        const lab = e === 0 ? 'TIADA KESAN' : e > 1 ? 'SANGAT BERKESAN' : e < 1 ? 'KURANG BERKESAN' : '';
+        if (lab) txt(lab, x + cw - 16, y + 40, { size: 18, align: 'right', color: '#fff6a8' });
+      }
     });
-    panel(484, SH - 152, SW - 492, 144);
-    const m = mv[this.i], d = MOVES[m.id];
-    txt('PP', 510, SH - 122, { size: 28 });
-    txt(`${m.pp}/${d.pp}`, SW - 36, SH - 122, { size: 28, align: 'right', color: m.pp === 0 ? '#d03030' : '#202028' });
-    ctx.fillStyle = TYPE_COLOR[d.t]; rr(510, SH - 82, SW - 546, 34, 6); ctx.fill();
-    txt(d.t.toUpperCase(), 510 + (SW - 546) / 2, SH - 80, { size: 28, color: '#fff', align: 'center' });
   }
 }
-
 // Mulakan pertarungan; kembali 'win'|'lose'|'run'|'caught'
 async function startBattle(o) {
   const bs = new BattleScene(o);
@@ -654,7 +727,7 @@ async function startBattle(o) {
     await UI.say(`{P} telah mengalahkan ${bs.tr.cls} ${bs.tr.name}!`);
     if (bs.tr.lose) await UI.say(bs.tr.lose);
     const money = bs.tr.money !== undefined ? bs.tr.money : bs.tr.team[bs.tr.team.length - 1].lv * (bs.tr.pay || 20);
-    if (money > 0) { S.money += money; await UI.say(`{P} mendapat RM${money} kerana menang!`); }
+    if (money > 0) { S.money += money; await UI.say(`{P} mendapat ${kupang(money)} kerana menang!`); }
   }
   if (r === 'lose' && o.canLose) {
     await UI.say(o.loseText || '{P} kalah...');

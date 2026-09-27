@@ -7,7 +7,7 @@ const path = require('path');
   const errors = [];
   page.on('console', m => { if ((m.type() === 'error' || m.type() === 'warning') && !m.text().includes('ERR_CERT')) errors.push(m.type() + ': ' + m.text()); });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message + '\n' + e.stack));
-  await page.goto('file://' + path.join(__dirname, '..', 'index.html'));
+  await page.goto('file://' + path.join(__dirname, '..', 'index.html') + '?2d');
   await page.waitForTimeout(2000);
   const out = path.join(__dirname, '..', 'shots');
   require('fs').mkdirSync(out, { recursive: true });

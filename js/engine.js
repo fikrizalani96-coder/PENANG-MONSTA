@@ -1,10 +1,16 @@
 'use strict';
-// ===== Enjin asas: kanvas, input, adegan, teks, dialog, bunyi =====
-const SW = 720, SH = 480, TS = 48, PX = 3;
+// ===== Enjin asas: pentas responsif (9:16 / 16:9), input, adegan, teks, dialog, bunyi =====
+// Saiz logik UI: sisi pendek sentiasa 720 unit. Landskap = 1280x720, potret = 720x(>=1280).
+let SW = 1280, SH = 720, UIK = 1;
+const TS = 48, PX = 3;
+const INSET = { b: 0, l: 0, r: 0, t: 0 };
+const stage = document.getElementById('stage');
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
-ctx.imageSmoothingEnabled = false;
-const FONT = "'VT323', 'Courier New', monospace";
+const FONT = "'Baloo 2', 'Trebuchet MS', 'Segoe UI', sans-serif";
+const FONT_PIX = "'Press Start 2P', 'Courier New', monospace";
+const IS_TOUCH = matchMedia('(hover: none), (pointer: coarse)').matches || 'ontouchstart' in window;
+let PORTRAIT = false;
 
 const rnd = n => Math.floor(Math.random() * n);
 const chance = p => Math.random() < p;
@@ -13,9 +19,33 @@ const pick = arr => arr[rnd(arr.length)];
 const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
 
+function layout() {
+  const vw = innerWidth, vh = innerHeight;
+  PORTRAIT = vh > vw;
+  let w, h;
+  if (IS_TOUCH) { w = vw; h = vh; }               // telefon: skrin penuh
+  else {                                           // web: 16:9 (atau 9:16 jika tetingkap tegak)
+    const ar = PORTRAIT ? 9 / 16 : 16 / 9;
+    w = vw; h = vw / ar; if (h > vh) { h = vh; w = vh * ar; }
+  }
+  w = Math.floor(w); h = Math.floor(h);
+  stage.style.width = w + 'px'; stage.style.height = h + 'px';
+  if (PORTRAIT) { SW = 720; SH = Math.round(720 * h / w); } else { SH = 720; SW = Math.round(720 * w / h); }
+  UIK = Math.min(2.5, Math.max(1, (w * (devicePixelRatio || 1)) / SW));
+  cv.width = Math.round(SW * UIK); cv.height = Math.round(SH * UIK);
+  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  INSET.b = INSET.l = INSET.r = INSET.t = 0;
+  if (IS_TOUCH) { if (PORTRAIT) INSET.b = Math.round(SH * .25); else { INSET.l = 250; INSET.r = 250; } }
+  if (window.R3 && R3.ok) R3.resize(w, h);
+  document.body.classList.toggle('portrait', PORTRAIT);
+}
+addEventListener('resize', layout);
+addEventListener('orientationchange', () => setTimeout(layout, 200));
+layout();
+
 // ---------- Input ----------
 const Input = {
-  held: {}, pressed: {}, enabled: true, rt: {},
+  held: {}, pressed: {}, enabled: true, rt: {}, joy: null,
   keymap: {
     ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left',
     ArrowRight: 'right', KeyD: 'right', KeyZ: 'a', Space: 'a', KeyJ: 'a', KeyX: 'b', Backspace: 'b',
@@ -24,7 +54,7 @@ const Input = {
   press(k) { if (!this.held[k]) { this.pressed[k] = true; this.rt[k] = 0; } this.held[k] = true; Snd.unlock(); },
   release(k) { this.held[k] = false; },
   clear() { this.held = {}; this.pressed = {}; },
-  tick(dt) { // auto ulang untuk arah
+  tick(dt) {
     for (const k of ['up', 'down', 'left', 'right']) {
       if (this.held[k]) {
         this.rt[k] = (this.rt[k] || 0) + dt;
@@ -45,7 +75,7 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => { const k = Input.keymap[e.code]; if (k) Input.release(k); });
 addEventListener('blur', () => Input.clear());
-document.querySelectorAll('#pad [data-k]').forEach(b => {
+document.querySelectorAll('#touch [data-k]').forEach(b => {
   const k = b.dataset.k;
   const down = e => { e.preventDefault(); b.classList.add('on'); Input.press(k); };
   const up = e => { e.preventDefault(); b.classList.remove('on'); Input.release(k); };
@@ -54,11 +84,38 @@ document.querySelectorAll('#pad [data-k]').forEach(b => {
   b.addEventListener('pointerleave', up);
   b.addEventListener('pointercancel', up);
 });
-document.getElementById('mute').addEventListener('click', () => Snd.toggle());
+// Kayu bedik maya (joystick) 4 arah
+(() => {
+  const base = document.getElementById('joy'), knob = document.getElementById('knob');
+  if (!base) return;
+  let id = null, cur = null;
+  const setDir = d => {
+    if (d === cur) return;
+    if (cur) Input.release(cur);
+    cur = d;
+    if (d) Input.press(d);
+  };
+  const move = e => {
+    const r = base.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    let dx = e.clientX - cx, dy = e.clientY - cy;
+    const max = r.width * .38, len = Math.hypot(dx, dy);
+    if (len > max) { dx *= max / len; dy *= max / len; }
+    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    if (len < r.width * .12) setDir(null);
+    else setDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+  };
+  base.addEventListener('pointerdown', e => { e.preventDefault(); id = e.pointerId; base.setPointerCapture(id); Snd.unlock(); move(e); });
+  base.addEventListener('pointermove', e => { if (e.pointerId === id) move(e); });
+  const end = e => { if (e.pointerId !== id) return; id = null; knob.style.transform = ''; setDir(null); };
+  base.addEventListener('pointerup', end); base.addEventListener('pointercancel', end);
+})();
+const muteBtn = document.getElementById('mute');
+if (muteBtn) muteBtn.addEventListener('click', () => Snd.toggle());
 
 // ---------- Gelung & adegan ----------
 const Game = {
-  scenes: [], timers: [], t: 0, fade: 0, fadeTarget: 0, fadeSpeed: 4, fadeRes: null,
+  scenes: [], timers: [], t: 0, fade: 0, fadeTarget: 0, fadeSpeed: 4, fadeRes: null, used3d: false,
   push(s) { this.scenes.push(s); if (s.enter) s.enter(); return s; },
   pop(s) { const i = s ? this.scenes.lastIndexOf(s) : this.scenes.length - 1; if (i >= 0) this.scenes.splice(i, 1); },
   top() { return this.scenes[this.scenes.length - 1]; },
@@ -71,7 +128,7 @@ function fadeTo(v, speed = 4) {
 let _last = 0;
 function frame(ts) {
   const dt = Math.min(0.05, (ts - _last) / 1000 || 0.016);
-  _last = ts; Game.t += dt;
+  _last = ts; Game.t += dt; Game.dt = dt;
   Input.tick(dt);
   for (let i = Game.timers.length - 1; i >= 0; i--) {
     const tm = Game.timers[i]; tm.t -= dt;
@@ -88,25 +145,35 @@ function frame(ts) {
   }
   let s = Game.scenes.length - 1;
   while (s > 0 && Game.scenes[s].transparent) s--;
-  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, SW, SH);
+  ctx.setTransform(UIK, 0, 0, UIK, 0, 0);
+  ctx.clearRect(0, 0, SW, SH);
+  Game.used3d = false;
   for (let i = Math.max(0, s); i < Game.scenes.length; i++) {
     try { Game.scenes[i].draw(ctx); } catch (e) { console.error(e); }
   }
-  if (Game.fade > 0) { ctx.fillStyle = `rgba(0,0,0,${Game.fade})`; ctx.fillRect(0, 0, SW, SH); }
+  if (window.R3 && R3.ok) R3.endFrame(Game.used3d);
+  if (!Game.used3d && !Game.scenes.length) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, SW, SH); }
+  if (Game.fade > 0) { ctx.fillStyle = `rgba(4,6,14,${Game.fade})`; ctx.fillRect(0, 0, SW, SH); }
+  if (window.Monet) Monet.drawBadge && Monet.drawBadge();
   Snd.tick();
   Input.pressed = {};
   requestAnimationFrame(frame);
 }
 
-// ---------- Lukisan asas ----------
-function setFont(size) { ctx.font = `${size}px ${FONT}`; }
+// ---------- Lukisan asas (gaya UI "epik") ----------
+const THEME = {
+  panelA: '#15213f', panelB: '#0b1328', edge: '#e9c46a', edge2: '#8a6a2a', text: '#f4f1e8', dim: '#9aa6c4',
+  accent: '#e9c46a', red: '#e0524a', blue: '#4a8fe0', glass: 'rgba(12,20,42,.86)'
+};
+function setFont(size, pix) { ctx.font = `${pix ? '' : '600 '}${Math.round(size * (pix ? .55 : .86))}px ${pix ? FONT_PIX : FONT}`; }
 function txt(s, x, y, o = {}) {
-  setFont(o.size || 32);
+  setFont(o.size || 32, o.pix);
   ctx.textAlign = o.align || 'left';
   ctx.textBaseline = 'top';
-  if (o.shadow) { ctx.fillStyle = o.shadow; ctx.fillText(s, x + 2, y + 2); }
-  ctx.fillStyle = o.color || '#202028';
-  ctx.fillText(s, x, y);
+  const yy = y + (o.pix ? 4 : -2);
+  if (o.shadow !== false) { ctx.fillStyle = o.shadow || 'rgba(0,0,0,.45)'; ctx.fillText(s, x + 1.5, yy + 2); }
+  ctx.fillStyle = o.color || THEME.text;
+  ctx.fillText(s, x, yy);
 }
 function rr(x, y, w, h, r) {
   ctx.beginPath();
@@ -116,13 +183,20 @@ function rr(x, y, w, h, r) {
   ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
 }
 function panel(x, y, w, h, alt) {
-  ctx.fillStyle = '#283044'; rr(x, y, w, h, 10); ctx.fill();
-  ctx.fillStyle = alt ? '#eef4ff' : '#fafaf6'; rr(x + 4, y + 4, w - 8, h - 8, 7); ctx.fill();
-  ctx.strokeStyle = alt ? '#5a8ad0' : '#d05a5a'; ctx.lineWidth = 3; rr(x + 9, y + 9, w - 18, h - 18, 4); ctx.stroke();
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 6;
+  const g = ctx.createLinearGradient(0, y, 0, y + h);
+  g.addColorStop(0, alt ? '#1d2f5c' : THEME.panelA); g.addColorStop(1, THEME.panelB);
+  ctx.fillStyle = g; rr(x, y, w, h, 14); ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle = THEME.edge; ctx.lineWidth = 3; rr(x + 1.5, y + 1.5, w - 3, h - 3, 13); ctx.stroke();
+  ctx.strokeStyle = 'rgba(233,196,106,.25)'; ctx.lineWidth = 1.5; rr(x + 7, y + 7, w - 14, h - 14, 9); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.06)'; rr(x + 4, y + 4, w - 8, Math.min(h * .4, 40), 10); ctx.fill();
 }
 function cursor(x, y) {
-  ctx.fillStyle = '#202028';
-  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 12, y + 9); ctx.lineTo(x, y + 18); ctx.closePath(); ctx.fill();
+  const bob = Math.sin(Game.t * 8) * 2;
+  ctx.fillStyle = THEME.accent;
+  ctx.beginPath(); ctx.moveTo(x + bob, y); ctx.lineTo(x + 13 + bob, y + 9); ctx.lineTo(x + bob, y + 18); ctx.closePath(); ctx.fill();
 }
 function wrapText(s, maxW, size = 32) {
   setFont(size);
@@ -140,6 +214,25 @@ function wrapText(s, maxW, size = 32) {
 function fmt(s) {
   return String(s).replace(/\{P\}/g, (S && S.name) || 'ALI').replace(/\{R\}/g, (S && S.rival) || 'JOHAN');
 }
+// Kotak dialog: bawah skrin, di atas kawalan sentuh
+function dlgRect() {
+  const avail = SW - INSET.l - INSET.r - 24;
+  const w = Math.min(avail, 1100), x = INSET.l + 12 + (avail - w) / 2;
+  const h = 150, y = SH - INSET.b - h - 12;
+  return { x, y, w, h };
+}
+// Lukis adegan lama 720x480 dalam kotak berskala (menu skrin penuh)
+function legacy(fn, bg) {
+  ctx.save();
+  if (bg) { ctx.fillStyle = bg; ctx.fillRect(0, 0, SW, SH); }
+  const availH = SH - INSET.b, availW = SW - INSET.l - INSET.r;
+  const k = Math.min(availW / 720, availH / 480);
+  ctx.translate(INSET.l + (availW - 720 * k) / 2, (availH - 480 * k) / 2);
+  ctx.scale(k, k);
+  const a = SW, b = SH, il = INSET.l, ir = INSET.r, ib = INSET.b;
+  SW = 720; SH = 480; INSET.l = INSET.r = INSET.b = 0;
+  try { fn(); } finally { SW = a; SH = b; INSET.l = il; INSET.r = ir; INSET.b = ib; ctx.restore(); }
+}
 
 // ---------- Dialog ----------
 class Dialog {
@@ -147,11 +240,15 @@ class Dialog {
     this.transparent = true; this.res = res; this.opts = opts;
     const pages = Array.isArray(text) ? text : [text];
     this.pages = [];
+    const R = dlgRect();
     for (const p of pages) {
-      const lines = wrapText(fmt(p), SW - 80);
+      const lines = wrapText(fmt(p), R.w - 70);
       for (let i = 0; i < lines.length; i += 3) this.pages.push(lines.slice(i, i + 3));
     }
     this.pi = 0; this.chars = 0; this.done = false;
+    this.speaker = null;
+    const m = /^([A-Z][A-Z .'{}]{1,24}):\s/.exec(fmt(pages[0]));
+    if (m) this.speaker = m[1];
   }
   get cur() { return this.pages[this.pi]; }
   get len() { return this.cur.join('').length; }
@@ -177,15 +274,17 @@ class Dialog {
     this.res();
   }
   draw() {
-    panel(8, SH - 152, SW - 16, 144);
+    const R = dlgRect();
+    panel(R.x, R.y, R.w, R.h);
     let n = Math.floor(this.chars);
     this.cur.forEach((line, i) => {
       const s = line.slice(0, Math.max(0, n)); n -= line.length;
-      txt(s, 36, SH - 124 + i * 36);
+      txt(s, R.x + 32, R.y + 24 + i * 38);
     });
     if (!this.done && this.chars >= this.len && !this.opts.noWait && Math.floor(Game.t * 3) % 2 === 0) {
-      ctx.fillStyle = '#d05a5a';
-      ctx.beginPath(); ctx.moveTo(SW - 50, SH - 44); ctx.lineTo(SW - 36, SH - 44); ctx.lineTo(SW - 43, SH - 35); ctx.fill();
+      ctx.fillStyle = THEME.accent;
+      const bx = R.x + R.w - 40, by = R.y + R.h - 30;
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + 16, by); ctx.lineTo(bx + 8, by + 10); ctx.fill();
     }
   }
 }
@@ -197,11 +296,13 @@ class Choice {
     this.vis = o.visible || 8; this.scroll = 0;
     setFont(32);
     const w = Math.max(...options.map(s => ctx.measureText(fmt(s)).width));
-    this.w = Math.max(o.w || 0, 140, w + 76);
+    this.w = Math.max(o.w || 0, 150, w + 80);
     const n = Math.min(this.vis, options.length);
-    this.h = n * 38 + 30;
-    this.x = o.x !== undefined ? o.x : SW - this.w - 8;
-    this.y = o.y !== undefined ? o.y : SH - 156 - this.h;
+    this.h = n * 42 + 30;
+    const R = dlgRect();
+    this.x = o.x !== undefined ? o.x : R.x + R.w - this.w;
+    this.y = o.y !== undefined ? o.y : R.y - 8 - this.h;
+    if (this.y < 8 + INSET.t) this.y = 8 + INSET.t;
   }
   update() {
     const n = this.opts.length;
@@ -217,12 +318,13 @@ class Choice {
     panel(this.x, this.y, this.w, this.h, true);
     const end = Math.min(this.opts.length, this.scroll + this.vis);
     for (let k = this.scroll; k < end; k++) {
-      const yy = this.y + 16 + (k - this.scroll) * 38;
-      txt(fmt(this.opts[k]), this.x + 40, yy);
-      if (k === this.i) cursor(this.x + 20, yy + 7);
+      const yy = this.y + 16 + (k - this.scroll) * 42;
+      if (k === this.i) { ctx.fillStyle = 'rgba(233,196,106,.16)'; rr(this.x + 10, yy - 2, this.w - 20, 40, 8); ctx.fill(); }
+      txt(fmt(this.opts[k]), this.x + 42, yy + 2, { color: k === this.i ? '#fff6d8' : THEME.text });
+      if (k === this.i) cursor(this.x + 20, yy + 9);
     }
-    if (this.scroll > 0) txt('▲', this.x + this.w - 30, this.y + 8, { size: 20 });
-    if (end < this.opts.length) txt('▼', this.x + this.w - 30, this.y + this.h - 28, { size: 20 });
+    if (this.scroll > 0) txt('▲', this.x + this.w - 30, this.y + 6, { size: 20 });
+    if (end < this.opts.length) txt('▼', this.x + this.w - 30, this.y + this.h - 26, { size: 20 });
   }
 }
 
@@ -254,6 +356,26 @@ const UI = {
       };
       document.getElementById('nameOk').onclick = done;
       inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); done(); } e.stopPropagation(); };
+    });
+  },
+  // Sepanduk bab cerita
+  chapter(n, title) {
+    return new Promise(res => {
+      const sc = {
+        transparent: true, t: 0, update(dt) { this.t += dt; if (this.t > 3.2 || (this.t > .8 && (Input.pressed.a || Input.pressed.b))) { Game.pop(this); res(); } },
+        draw() {
+          const a = Math.min(1, this.t * 2, (3.2 - this.t) * 2);
+          ctx.save(); ctx.globalAlpha = Math.max(0, a);
+          const g = ctx.createLinearGradient(0, SH / 2 - 90, 0, SH / 2 + 90);
+          g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(.5, 'rgba(6,10,24,.85)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = g; ctx.fillRect(0, SH / 2 - 90, SW, 180);
+          txt(n, SW / 2, SH / 2 - 62, { size: 30, align: 'center', color: THEME.accent });
+          txt(title, SW / 2, SH / 2 - 22, { size: 60, align: 'center', color: '#fff' });
+          ctx.restore();
+        }
+      };
+      Snd.sfx('level');
+      Game.push(sc);
     });
   }
 };

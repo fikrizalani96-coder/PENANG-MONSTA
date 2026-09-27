@@ -2,52 +2,90 @@
 <html lang="ms">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Monsta Seberang Perai</title>
+<meta name="description" content="Pengembaraan Monsta 3D di Seberang Perai — dari Penaga ke Nibong Tebal. Kumpul Monsta, cabar gim, dan jejaki sejarah Malaysia.">
+<meta name="theme-color" content="#0b1328">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;800&family=Press+Start+2P&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="wrap">
-  <canvas id="game" width="720" height="480"></canvas>
-  <div id="pad">
-    <div id="dpad">
-      <button data-k="up" class="d up">▲</button>
-      <button data-k="left" class="d left">◀</button>
-      <button data-k="right" class="d right">▶</button>
-      <button data-k="down" class="d down">▼</button>
+<div id="stage">
+  <canvas id="gl"></canvas>
+  <canvas id="game"></canvas>
+  <div id="touch">
+    <div id="joy"><div id="knob"></div></div>
+    <div id="abtn">
+      <button data-k="b" class="r b" aria-label="Butang B">B</button>
+      <button data-k="a" class="r a" aria-label="Butang A">A</button>
     </div>
-    <div id="mid">
-      <button data-k="start" class="s">MENU</button>
-      <button id="mute" class="s">BUNYI</button>
-    </div>
-    <div id="ab">
-      <button data-k="b" class="r b">B</button>
-      <button data-k="a" class="r a">A</button>
+    <div id="topbtn">
+      <button id="mute" class="s" aria-label="Bunyi">♪</button>
+      <button data-k="start" class="s" aria-label="Menu">MENU</button>
     </div>
   </div>
-  <p id="help">Kawalan: Anak panah / WASD = gerak &nbsp;·&nbsp; Z / Space = A (pilih) &nbsp;·&nbsp; X / Shift = B (batal, tahan untuk lari) &nbsp;·&nbsp; Enter = Menu &nbsp;·&nbsp; M = bunyi</p>
 </div>
-<div id="nameBox" class="hidden">
-  <div class="nb">
-    <label id="nameLabel">Nama kamu?</label>
+
+<div id="nameBox" class="modal hidden">
+  <div class="card">
+    <label id="nameLabel" for="nameInput">Nama kamu?</label>
     <input id="nameInput" maxlength="10" autocomplete="off">
-    <button id="nameOk">OK</button>
+    <button id="nameOk" class="btn gold">OK</button>
   </div>
 </div>
+
+<div id="acct" class="modal hidden" role="dialog" aria-labelledby="acctTitle">
+  <div class="card">
+    <h2 id="acctTitle">Akaun & Simpanan Awan</h2>
+    <p id="acctStatus">Belum log masuk. Kemajuan disimpan dalam pelayar ini sahaja.</p>
+    <button id="btnGoogle" class="btn google"><span class="g">G</span> Log masuk dengan Google</button>
+    <div id="acctIn" class="hidden">
+      <button id="btnCloudSave" class="btn gold">Simpan ke awan</button>
+      <button id="btnCloudLoad" class="btn">Muat dari awan</button>
+      <button id="btnLogout" class="btn ghost">Log keluar</button>
+    </div>
+    <p class="fine" id="acctNote"></p>
+    <button id="acctClose" class="btn ghost">Tutup</button>
+  </div>
+</div>
+
+<div id="shop" class="modal hidden" role="dialog" aria-labelledby="shopTitle">
+  <div class="card wide">
+    <h2 id="shopTitle">Kedai Premium</h2>
+    <p class="fine" id="shopNote">Pembelian pilihan. Permainan boleh ditamatkan sepenuhnya tanpa membayar.</p>
+    <div id="skuList"></div>
+    <p class="fine">Pembayaran selamat melalui Stripe (kad, FPX). Harga dalam Ringgit Malaysia termasuk semua caj. <a href="terma.html" target="_blank" rel="noopener">Terma</a> · <a href="privasi.html" target="_blank" rel="noopener">Privasi</a></p>
+    <button id="shopClose" class="btn ghost">Tutup</button>
+  </div>
+</div>
+
+<div id="toast" class="hidden"></div>
+
+<script src="vendor/three.min.js"></script>
+<script src="js/config.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/gfx.js"></script>
 <script src="js/data.js"></script>
 <script src="js/monsta.js"></script>
+<script src="js/render3d.js"></script>
 <script src="js/battle.js"></script>
 <script src="js/menus.js"></script>
 <script src="js/world.js"></script>
+<script src="js/cloud.js"></script>
+<script src="js/monetize.js"></script>
 <script src="js/story.js"></script>
+<script src="js/sejarah.js"></script>
 <script src="js/maps/dalam.js"></script>
 <script src="js/maps/utara.js"></script>
 <script src="js/maps/tengah.js"></script>
 <script src="js/maps/selatan.js"></script>
+<script src="js/maps/masa.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

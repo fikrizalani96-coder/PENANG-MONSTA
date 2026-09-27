@@ -2,9 +2,9 @@
 const { chromium } = require('playwright');
 const path = require('path');
 (async () => {
-  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const mobile = process.argv.includes('--mobile');
-  const page = await browser.newPage(mobile ? { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } : { viewport: { width: 760, height: 520 } });
+  const page = await browser.newPage(mobile ? { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } : { viewport: { width: 1280, height: 720 } });
   const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error' && !m.text().includes('ERR_CERT')) errors.push(m.text()); });
@@ -12,7 +12,7 @@ const path = require('path');
   await page.waitForTimeout(1500);
   const out = path.join(__dirname, '..', 'shots', mobile ? 'mobile' : 'ui');
   require('fs').mkdirSync(out, { recursive: true });
-  const shot = async name => mobile ? page.screenshot({ path: `${out}/${name}.png` }) : page.screenshot({ path: `${out}/${name}.png`, clip: { x: 0, y: 0, width: 740, height: 500 } });
+  const shot = async name => mobile ? page.screenshot({ path: `${out}/${name}.png` }) : page.screenshot({ path: `${out}/${name}.png` });
   const key = async (k, d = 180) => { await page.keyboard.down(k); await page.waitForTimeout(40); await page.keyboard.up(k); await page.waitForTimeout(d); };
   await shot('00_title');
   await page.evaluate(() => {

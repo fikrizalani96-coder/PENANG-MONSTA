@@ -453,7 +453,7 @@ MAPS.kepalabatas = {
               await say('PEKEDAI: Guna BASIKAL dari BEG untuk bergerak dua kali lebih laju!');
               return;
             }
-            await say('PEKEDAI: Selamat datang ke KEDAI BASIKAL KEPALA BATAS! Basikal lipat terbaru, hanya RM1,000,000!');
+            await say('PEKEDAI: Selamat datang ke KEDAI BASIKAL KEPALA BATAS! Basikal lipat terbaru, hanya 1,000,000 Kupang!');
             await say('PEKEDAI: Apa? Tak cukup duit? Hmm... Kalau ada BAUCAR BASIKAL, bolehlah dapat percuma.');
           }
         },

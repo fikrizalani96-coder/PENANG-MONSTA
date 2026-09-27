@@ -299,6 +299,8 @@ function drawWarpTile(g, look, x, y, above) {
     px(g, x, y, 16, 16, '#a88a68'); px(g, x + 2, y + 2, 12, 12, '#201810'); px(g, x + 3, y + 3, 10, 2, '#403020');
   } else if (look === 'tikar') {
     px(g, x, y, 16, 16, '#d8b47c'); px(g, x + 2, y + 5, 12, 9, '#c84848');
+  } else if (look === 'portal') {
+    px(g, x, y, 16, 16, '#3a2a4a'); px(g, x + 2, y + 1, 12, 15, '#e9c46a'); px(g, x + 4, y + 3, 8, 13, '#9a78e0'); px(g, x + 6, y + 5, 4, 9, '#d8c8ff');
   } else if (look === 'kapal') {
     px(g, x, y, 16, 16, '#b88858'); px(g, x + 3, y, 10, 16, '#e8e8e8'); px(g, x + 4, y + 2, 8, 12, '#5878a8');
   }

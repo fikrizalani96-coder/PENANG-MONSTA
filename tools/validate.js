@@ -8,10 +8,10 @@ const ctx = {
   pick: a => a[0], DIRS: { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }, OPP: { up: 'down', down: 'up', left: 'right', right: 'left' },
 };
 vm.createContext(ctx);
-const files = ['gfx', 'data', 'monsta', 'battle', 'menus', 'world', 'story', 'maps/dalam', 'maps/utara', 'maps/tengah', 'maps/selatan'];
+const files = ['gfx', 'data', 'monsta', 'battle', 'menus', 'world', 'story', 'sejarah', 'maps/dalam', 'maps/utara', 'maps/tengah', 'maps/selatan', 'maps/masa'];
 let src = '';
 for (const f of files) { const p = path.join(root, 'js', f + '.js'); if (fs.existsSync(p)) src += fs.readFileSync(p, 'utf8') + '\n;\n'; }
-src += ';this.MAPS=MAPS;this.WALK=WALK;this.MARKERS=MARKERS;this.SP=SP;this.MOVES=MOVES;this.ITEMS=ITEMS;this.prepMap=prepMap;this.edgeOffset=edgeOffset;this.edgeOpen=edgeOpen;this.TOWN_ORDER=TOWN_ORDER;';
+src += ';this.FRAGS=FRAGS;this.MAPS=MAPS;this.WALK=WALK;this.MARKERS=MARKERS;this.SP=SP;this.MOVES=MOVES;this.ITEMS=ITEMS;this.prepMap=prepMap;this.edgeOffset=edgeOffset;this.edgeOpen=edgeOpen;this.TOWN_ORDER=TOWN_ORDER;';
 vm.runInContext(src, ctx, { filename: 'bundle.js' });
 const { MAPS, WALK, MARKERS, SP, ITEMS } = ctx;
 const BLOCK = new Set('TYt~wFr^HPMGBWRx#KCQnhzog|Xmd'.split(''));
@@ -43,7 +43,7 @@ for (const id in MAPS) {
     else if (typeof door.at === 'string') { if (!T.tiles.some(r => r.includes(door.at))) err(id, `pintu ${d} sasaran ${door.to} tiada '${door.at}'`); }
     else if (!T.tiles.some(r => r.includes('E'))) err(id, `pintu ${d} sasaran ${door.to} tiada E`);
     // petak di bawah pintu (keluar)
-    if (!m.inside && T.inside && !door.ret) {
+    if (!m.inside && T.inside && !door.ret && !door.keepRet) {
       m.base.forEach((r, y) => r.forEach((c, x) => { if (c === d) { const b = m.base[y + 1] && m.base[y + 1][x]; if (!b || !isWalk(b)) err(id, `bawah pintu ${d} (${x},${y + 1}) tidak boleh dijejak '${b}'`); } }));
     }
   }
@@ -122,9 +122,31 @@ for (const id in MAPS) {
   }
   for (const k in (m.doors || {})) { const dd = m.doors[k]; if (dd.stock) for (const s of dd.stock) if (!ITEMS[s]) err(id, `stok ${s} tiada`); if (dd.o) for (const kk in dd.o) { const d = dd.o[kk]; if (d.tr && Array.isArray(d.tr.team)) for (const e of d.tr.team) if (!SP[e[0]]) err(id, `Monsta ${e[0]}`); } }
 }
+// serpihan sejarah
+for (const f of ctx.FRAGS) {
+  const m = MAPS[f.map]; if (!m) { err('serpihan', f.n + ' peta tiada ' + f.map); continue; }
+  const c = m.base[f.y] && m.base[f.y][f.x];
+  if (!c || !isWalk(c) || /\d/.test(c) || c === 'E') err('serpihan', `#${f.n} di ${f.map} (${f.x},${f.y}) bukan petak boleh jejak ('${c}')`);
+  if (m.marks.some(k => k.x === f.x && k.y === f.y)) err('serpihan', `#${f.n} bertindih objek di ${f.map}`);
+  const adj = [[0, 1], [0, -1], [1, 0], [-1, 0]].some(([dx, dy]) => { const q = m.base[f.y + dy] && m.base[f.y + dy][f.x + dx]; return q && isWalk(q); });
+  if (!adj) err('serpihan', `#${f.n} tidak boleh dicapai`);
+}
 // peta tidak dirujuk
 const ref = new Set(['rumah_pemain']);
 for (const id in MAPS) { const m = MAPS[id]; for (const k in (m.conn || {})) ref.add(Array.isArray(m.conn[k]) ? m.conn[k][0] : m.conn[k]); for (const d in (m.doors || {})) ref.add(m.doors[d].to); }
 for (const id in MAPS) if (!ref.has(id) && !MAPS[id].scriptOnly) warn(id, 'peta tidak dirujuk oleh mana-mana pintu/sambungan');
-console.log(`\n${Object.keys(MAPS).length} peta, ${errs} ralat, ${warns} amaran`);
+// harga kedai premium: pelanggan == pelayan, semua < RM10 kecuali Buang Iklan RM29.90
+{
+  const msrc = fs.readFileSync(path.join(root, 'js', 'monetize.js'), 'utf8').split('const rm =')[0];
+  const SK = new Function('LOOKS', msrc + ';return SKUS;')({});
+  const srv = JSON.parse(fs.readFileSync(path.join(root, 'functions', 'skus.json'), 'utf8'));
+  for (const k of SK) {
+    const v = srv[k.id];
+    if (!v || v.sen !== k.sen || v.once !== !!k.once) err('harga', `${k.id} tidak sepadan dengan functions/skus.json`);
+    if (k.id === 'buang_iklan' ? k.sen !== 2990 : k.sen >= 1000) err('harga', `${k.id} harga ${k.sen} sen di luar julat`);
+  }
+  for (const id in srv) if (!SK.some(k => k.id === id)) err('harga', `${id} ada di pelayan tetapi tiada dalam permainan`);
+  console.log('item premium disemak: ' + SK.length);
+}
+console.log('serpihan disemak: ' + ctx.FRAGS.length); console.log(`\n${Object.keys(MAPS).length} peta, ${errs} ralat, ${warns} amaran`);
 process.exit(errs ? 1 : 0);

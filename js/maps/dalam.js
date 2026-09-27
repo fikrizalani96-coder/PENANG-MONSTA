@@ -202,8 +202,9 @@ async function deliverParcel() {
 class PicScene {
   constructor(sp) { this.sp = sp; this.transparent = true; }
   draw() {
-    panel(SW / 2 - 110, 40, 220, 220, true);
-    ctx.drawImage(monstaSprite(this.sp), SW / 2 - 96, 54, 192, 192);
+    const R = dlgRect(), sz = 260, x = SW / 2 - sz / 2, y = Math.max(20, R.y - sz - 150);
+    panel(x, y, sz, sz, true);
+    ctx.imageSmoothingEnabled = false; ctx.drawImage(monstaSprite(this.sp), x + 10, y + 10, sz - 20, sz - 20); ctx.imageSmoothingEnabled = true;
   }
 }
 

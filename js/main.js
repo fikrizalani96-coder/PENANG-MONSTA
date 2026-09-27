@@ -1,47 +1,49 @@
 'use strict';
 // ===== Skrin tajuk, permainan baru, tamat =====
-const TITLE_MONS = ['Nagabara', 'Meriampenyu', 'Sawahraja', 'Tupaipetir', 'Garuda', 'Jentayu', 'Nagatasik', 'Kancil', 'Nagaraja', 'Hulubalang'];
+const TITLE_MONS = ['Nagabara', 'Garuda', 'Meriampenyu', 'Jentayu', 'Sawahraja', 'Nagatasik', 'Tupaipetir', 'Kelembai', 'Nagaraja', 'Hulubalang'];
+function titleText(y) {
+  const big = PORTRAIT ? 120 : 150;
+  ctx.save();
+  setFont(big); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.font = `800 ${Math.round(big * .86)}px ${FONT}`;
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillText('MONSTA', SW / 2 + 5, y + 7);
+  const g = ctx.createLinearGradient(0, y, 0, y + big);
+  g.addColorStop(0, '#fff6d0'); g.addColorStop(.5, '#f3c85a'); g.addColorStop(1, '#b8781e');
+  ctx.fillStyle = g; ctx.fillText('MONSTA', SW / 2, y);
+  ctx.lineWidth = 3; ctx.strokeStyle = '#5a2a10'; ctx.strokeText('MONSTA', SW / 2, y);
+  ctx.restore();
+  txt('SEBERANG PERAI', SW / 2, y + big * .92, { size: PORTRAIT ? 44 : 52, align: 'center', color: '#fff' });
+  txt('JEJAK SEJARAH', SW / 2, y + big * .92 + (PORTRAIT ? 48 : 56), { size: 26, align: 'center', color: THEME.accent });
+}
 class TitleScene {
   constructor(res) { this.res = res; this.t = 0; this.k = 0; this.ready = false; }
   update(dt) {
     this.t += dt;
-    if (this.t > 3.5) { this.t = 0; this.k = (this.k + 1) % TITLE_MONS.length; }
+    if (this.t > 4.5) { this.t = 0; this.k = (this.k + 1) % TITLE_MONS.length; }
     if (!this.ready && (Input.pressed.a || Input.pressed.start)) { this.ready = true; Snd.sfx('beep'); this.res(); }
   }
   draw() {
-    const g = ctx.createLinearGradient(0, 0, 0, SH);
-    g.addColorStop(0, '#f8c860'); g.addColorStop(.55, '#f89850'); g.addColorStop(1, '#6a5aa8');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, SW, SH);
-    // matahari & bukit
-    ctx.fillStyle = '#fff4c0'; ctx.beginPath(); ctx.arc(560, 250, 70, 0, 7); ctx.fill();
-    ctx.fillStyle = '#4a3a78'; ctx.beginPath(); ctx.moveTo(0, 330); ctx.quadraticCurveTo(200, 250, 380, 320); ctx.quadraticCurveTo(560, 260, 720, 330); ctx.lineTo(720, 480); ctx.lineTo(0, 480); ctx.fill();
-    ctx.fillStyle = '#2a2458'; ctx.fillRect(0, 380, SW, 100);
-    for (let i = 0; i < 12; i++) { ctx.fillStyle = '#3a3470'; ctx.fillRect((i * 70 + Game.t * 20) % SW, 400 + (i % 3) * 20, 40, 3); }
-    txt('MONSTA', SW / 2, 26, { size: 110, align: 'center', color: '#fff8e0', shadow: '#8a2a20' });
-    txt('SEBERANG PERAI', SW / 2, 124, { size: 44, align: 'center', color: '#3a2060', shadow: '#f8e0a0' });
-    const img = monstaSprite(TITLE_MONS[this.k]);
-    const bob = Math.sin(Game.t * 2) * 6;
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, SW / 2 - 110, 170 + bob, 220, 220);
-    if (!this.ready && Math.floor(Game.t * 2) % 2 === 0) txt('Tekan A / Z untuk mula', SW / 2, 404, { size: 34, align: 'center', color: '#fff', shadow: '#000' });
-    txt('Pengembaraan Monsta di Penaga, Kepala Batas, Butterworth, Nibong Tebal dan seluruh Seberang Perai', SW / 2, 448, { size: 20, align: 'center', color: '#c8c0f0' });
+    if (!(R3.ok && R3.drawShow(TITLE_MONS[this.k], { rot: Game.t * .5, y: PORTRAIT ? -1 : 1 }))) {
+      screenBG('#3a2060', '#f89850');
+      ctx.imageSmoothingEnabled = false; ctx.drawImage(monstaSprite(TITLE_MONS[this.k]), SW / 2 - 150, SH * .35, 300, 300); ctx.imageSmoothingEnabled = true;
+    }
+    titleText(PORTRAIT ? 120 : 34);
+    if (!this.ready && Math.floor(Game.t * 2) % 2 === 0) txt(IS_TOUCH ? 'Sentuh butang A untuk mula' : 'Tekan Z / Enter untuk mula', SW / 2, SH - INSET.b - (PORTRAIT ? 90 : 80), { size: 34, align: 'center' });
+    txt('© Monsta Seberang Perai · Versi 2.0', SW / 2, SH - INSET.b - 36, { size: 20, align: 'center', color: 'rgba(255,255,255,.55)' });
   }
 }
 class IntroScene {
   constructor() { this.show = null; this.a = 0; }
   update(dt) { this.a = Math.min(1, this.a + dt * 2); }
   draw() {
-    ctx.fillStyle = '#f0f0f8'; ctx.fillRect(0, 0, SW, SH);
-    ctx.fillStyle = '#d8d8e8'; ctx.beginPath(); ctx.ellipse(SW / 2, 290, 160, 30, 0, 0, 7); ctx.fill();
-    ctx.globalAlpha = this.a;
-    ctx.imageSmoothingEnabled = false;
-    if (this.show === 'prof' || this.show === 'player' || this.show === 'rival') {
-      const look = this.show === 'prof' ? 'prof' : this.show === 'rival' ? 'johan' : S.look;
-      ctx.drawImage(personSprite(look, 'down', 0), SW / 2 - 96, 106, 192, 192);
-    } else if (this.show) {
-      ctx.drawImage(monstaSprite(this.show), SW / 2 - 110, 80, 220, 220);
-    }
-    ctx.globalAlpha = 1;
+    const human = this.show === 'prof' || this.show === 'player' || this.show === 'rival';
+    const look = this.show === 'prof' ? 'prof' : this.show === 'rival' ? 'johan' : S.look;
+    if (R3.ok && this.show && R3.drawShow(human ? look : this.show, { human, y: PORTRAIT ? -1.2 : 0 })) return;
+    screenBG('#2a2050', '#0a0818');
+    ctx.globalAlpha = this.a; ctx.imageSmoothingEnabled = false;
+    if (human) ctx.drawImage(personSprite(look, 'down', 0), SW / 2 - 110, SH * .2, 220, 220);
+    else if (this.show) ctx.drawImage(monstaSprite(this.show), SW / 2 - 130, SH * .15, 260, 260);
+    ctx.globalAlpha = 1; ctx.imageSmoothingEnabled = true;
   }
   set(s) { this.show = s; this.a = 0; }
 }
@@ -57,7 +59,7 @@ async function newGame() {
   sc.set('Kancil');
   await say('Dunia ini dihuni oleh makhluk yang dipanggil MONSTA!');
   await say('Ada orang yang memelihara Monsta sebagai kawan. Ada juga yang menggunakannya untuk bertarung.');
-  await say('Saya pula... saya mengkaji Monsta sebagai profesion saya di Penaga, Seberang Perai.');
+  await say('Saya mengkaji Monsta... dan juga SEJARAH tanah air kita. Setiap batu dan sungai di Seberang Perai menyimpan cerita beribu tahun!');
   sc.set('player');
   const g = await UI.ask('Pertama sekali, kamu budak lelaki atau perempuan?', ['LELAKI', 'PEREMPUAN'], { cancel: null });
   S.look = g === 0 ? 'pemain' : 'pemain2';
@@ -79,6 +81,8 @@ async function newGame() {
   World.load('rumah_pemain', 4, 5, 'up');
   Game.push(World.scene);
   await fadeTo(0, 2);
+  if (window.Cloud) Cloud.flushPending();
+  await UI.chapter('BAB 1', 'Pagi di Penaga');
 }
 async function continueGame(s) {
   S = Object.assign(newState(), s);
@@ -86,6 +90,7 @@ async function continueGame(s) {
   await fadeTo(1, 4);
   World.load(S.map, S.x, S.y, S.dir, door);
   Game.push(World.scene);
+  if (window.Cloud) Cloud.flushPending();
   await fadeTo(0, 4);
 }
 async function titleFlow() {
@@ -97,52 +102,57 @@ async function titleFlow() {
   Snd.music('tajuk');
   await fadeTo(0, 2);
   await p;
-  const save = loadGame();
-  let choice = 1;
-  if (save) {
-    const h = Math.floor(save.time / 3600), m = Math.floor(save.time / 60) % 60;
-    choice = await UI.choose(['SAMBUNG', 'PERMAINAN BARU'], { cancel: null, x: SW / 2 - 150, y: 300, w: 300 });
-    if (choice === 0) {
-      const ok = await UI.ask(`${save.name} · Lencana ${save.badges.length} · Masa ${h}:${String(m).padStart(2, '0')}. Teruskan?`, ['YA', 'TIDAK'], { cancel: 1 });
-      if (ok !== 0) { Game.pop(t); return titleFlow(); }
-    } else {
-      const ok = await UI.ask('Permainan baru akan memadam simpanan lama apabila kamu menyimpan. Teruskan?', ['YA', 'TIDAK'], { cancel: 1 });
-      if (ok !== 0) { Game.pop(t); return titleFlow(); }
+  while (true) {
+    const save = window.Cloud ? await Cloud.bestSave() : loadGame();
+    const opts = save ? ['SAMBUNG', 'PERMAINAN BARU', 'AKAUN GOOGLE'] : ['PERMAINAN BARU', 'AKAUN GOOGLE'];
+    const R = dlgRect();
+    const c = await UI.choose(opts, { cancel: null, x: SW / 2 - 220, y: SH - INSET.b - (PORTRAIT ? 470 : 320), w: 440 });
+    const id = opts[c];
+    if (id === 'AKAUN GOOGLE') { if (window.Cloud) await Cloud.openPanel(); continue; }
+    if (id === 'SAMBUNG') {
+      const h = Math.floor(save.time / 3600), m = Math.floor(save.time / 60) % 60;
+      const ok = await UI.ask(`${save.name} · Lencana ${save.badges.length} · Masa ${h}:${String(m).padStart(2, '0')}${save._cloud ? ' · ☁ awan' : ''}. Teruskan?`, ['YA', 'TIDAK'], { cancel: 1 });
+      if (ok !== 0) continue;
+      await fadeTo(1, 3); Game.pop(t);
+      return continueGame(save);
     }
+    if (save) {
+      const ok = await UI.ask('Permainan baru akan menggantikan simpanan lama apabila kamu menyimpan. Teruskan?', ['YA', 'TIDAK'], { cancel: 1 });
+      if (ok !== 0) continue;
+    }
+    await fadeTo(1, 3); Game.pop(t);
+    return newGame();
   }
-  await fadeTo(1, 3);
-  Game.pop(t);
-  if (save && choice === 0) await continueGame(save);
-  else await newGame();
 }
 // Dewan Kemasyhuran & kredit
 async function hallOfFame() {
-  const sc = { t: 0, draw() {
-    ctx.fillStyle = '#201830'; ctx.fillRect(0, 0, SW, SH);
-    txt('DEWAN KEMASYHURAN', SW / 2, 20, { size: 48, align: 'center', color: '#f8d860' });
-    S.party.forEach((m, k) => {
-      const x = 70 + (k % 3) * 200, y = 90 + Math.floor(k / 3) * 180;
-      ctx.drawImage(monstaSprite(m.sp), x, y, 140, 140);
-      txt(monName(m) + ' Tp' + m.lv, x + 70, y + 136, { size: 26, align: 'center', color: '#fff' });
-    });
-  } };
+  const sc = {
+    k: 0, draw() {
+      const m = S.party[Math.floor(Game.t / 2.5) % S.party.length];
+      if (!(R3.ok && R3.drawShow(m.sp, { rot: Game.t * .4, y: PORTRAIT ? -1.2 : 0 }))) screenBG('#201830', '#000');
+      txt('DEWAN KEMASYHURAN', SW / 2, 30 + (IS_TOUCH ? 50 : 0), { size: 54, align: 'center', color: THEME.accent });
+      txt(monName(m) + '  ·  Tp ' + m.lv, SW / 2, 96 + (IS_TOUCH ? 50 : 0), { size: 36, align: 'center' });
+    }
+  };
   Game.push(sc);
   Snd.music('tajuk');
   await say('Tahniah, {P}! Kamu dan Monsta kamu kini diabadikan dalam DEWAN KEMASYHURAN sebagai JUARA MONSTA SEBERANG PERAI!');
   Game.pop(sc);
   const cr = {
-    y: SH, lines: ['MONSTA SEBERANG PERAI', '', 'Dari Penaga ke Nibong Tebal,', 'dari Kepala Batas ke Bukit Mertajam,', 'terima kasih kerana bermain!', '', 'Juara: ' + S.name, 'Pesaing: ' + S.rival, '', 'Monstadex: ' + dexCount()[1] + ' ditangkap', '', 'Cerita, grafik & muzik', 'dijana untuk permainan ini', '', 'TAMAT', '', '...tetapi pengembaraan belum selesai!', 'Ada Monsta legenda yang masih bersembunyi', 'di Batu Bersurat Cherok Tok Kun...'],
+    y: SH, lines: ['MONSTA SEBERANG PERAI', '', 'Dari Penaga ke Nibong Tebal,', 'dari Kepala Batas ke Bukit Mertajam,', 'terima kasih kerana bermain!', '', 'Juara: ' + S.name, 'Pesaing: ' + S.rival, '', 'Monstadex: ' + dexCount()[1] + ' ditangkap', '', 'TAMAT BAHAGIAN PERTAMA', '', '...tetapi Batu Bersurat Cherok Tok Kun', 'mula bercahaya...', 'Sejarah Seberang Perai memanggil kamu!'],
     update(dt) { this.y -= dt * 60; if (Input.held.a) this.y -= dt * 200; },
-    draw() { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, SW, SH); this.lines.forEach((l, i) => txt(l, SW / 2, this.y + i * 44, { size: 36, align: 'center', color: i === 0 ? '#f8d860' : '#fff' })); }
+    draw() { screenBG('#0a0818', '#000'); this.lines.forEach((l, i) => txt(l, SW / 2, this.y + i * 48, { size: 38, align: 'center', color: i === 0 ? THEME.accent : '#fff' })); }
   };
   Game.push(cr);
-  while (cr.y > -cr.lines.length * 44) await wait(.1);
+  while (cr.y > -cr.lines.length * 48) await wait(.1);
   Game.pop(cr);
   setFlag('juara');
   S.lastHeal = { map: 'rumah_pemain', x: 5, y: 5, ret: { map: 'penaga', x: 8, y: 5 } }; S.ret = { map: 'penaga', x: 8, y: 5 };
   World.load('rumah_pemain', 5, 5, 'up');
   saveGame();
-  await say('Permainan telah disimpan. Kamu boleh terus meneroka Seberang Perai!');
+  await say('Permainan telah disimpan.');
+  await UI.chapter('BAB 12', 'Jejak Sejarah');
+  await say('MAK: {P}! Profesor Meranti telefon tadi. Katanya Batu Bersurat di Bukit Mertajam tiba-tiba bercahaya! Dia mahu jumpa kamu di sana.');
 }
 
 // ---------- Mula ----------
@@ -150,9 +160,11 @@ function boot() {
   World.init();
   requestAnimationFrame(frame);
   Game.fade = 1;
+  if (window.Monet) Monet.init();
+  if (window.Cloud) Cloud.init();
   titleFlow();
 }
 window.addEventListener('error', e => { console.error('Ralat:', e.message); });
 if (document.fonts && document.fonts.load) {
-  Promise.race([document.fonts.load('32px VT323'), new Promise(r => setTimeout(r, 1500))]).then(boot, boot);
+  Promise.race([Promise.all([document.fonts.load('600 32px "Baloo 2"'), document.fonts.load('16px "Press Start 2P"')]), new Promise(r => setTimeout(r, 1800))]).then(boot, boot);
 } else boot();
