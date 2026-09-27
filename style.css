@@ -1,0 +1,23 @@
+html,body{margin:0;padding:0;background:#1b1f2a;color:#dfe6f5;font-family:'VT323',monospace;overscroll-behavior:none;touch-action:manipulation}
+#wrap{max-width:720px;margin:0 auto;padding:8px;display:flex;flex-direction:column;align-items:center}
+canvas{width:100%;max-width:720px;aspect-ratio:3/2;background:#000;image-rendering:pixelated;border-radius:6px;box-shadow:0 0 0 4px #394056,0 8px 24px #0008}
+#pad{width:100%;max-width:720px;display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:'d . ab' 'm m m';align-items:center;margin-top:14px;user-select:none;-webkit-user-select:none}
+#pad button{font-family:inherit;border:none;color:#fff;background:#3c455c;box-shadow:0 4px 0 #242a38;touch-action:none;-webkit-tap-highlight-color:transparent}
+#pad button:active,#pad button.on{transform:translateY(3px);box-shadow:0 1px 0 #242a38}
+#dpad{grid-area:d;position:relative;width:150px;height:150px}
+#dpad .d{position:absolute;width:50px;height:50px;font-size:22px;border-radius:8px}
+#dpad .up{left:50px;top:0}#dpad .down{left:50px;top:100px}#dpad .left{left:0;top:50px}#dpad .right{left:100px;top:50px}
+#mid{grid-area:m;display:flex;gap:14px;justify-content:center;margin-top:16px}
+#mid .s{font-size:18px;padding:8px 12px;border-radius:14px;background:#566079}
+#ab{grid-area:ab;display:flex;gap:14px;align-items:center;padding-right:4px}
+#ab .r{width:64px;height:64px;border-radius:50%;font-size:28px}
+#ab .a{background:#c8404a;margin-bottom:26px}#ab .b{background:#7b3a8f;margin-top:26px}
+#help{font-size:18px;color:#8b95ad;text-align:center}
+@media (hover:hover) and (pointer:fine){#pad{display:none}}
+@media (hover:none),(pointer:coarse){#help{display:none}}
+#nameBox{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:9}
+#nameBox.hidden{display:none}
+.nb{background:#f8f8f8;color:#222;padding:20px;border-radius:10px;border:4px solid #303848;display:flex;flex-direction:column;gap:10px;min-width:260px}
+.nb label{font-size:28px}
+.nb input{font-family:inherit;font-size:30px;padding:4px 8px;text-transform:uppercase}
+.nb button{font-family:inherit;font-size:26px;background:#3c455c;color:#fff;border:none;border-radius:6px;padding:6px}

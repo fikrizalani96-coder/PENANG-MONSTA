@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Monsta Seberang Perai</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="720" height="480"></canvas>
+  <div id="pad">
+    <div id="dpad">
+      <button data-k="up" class="d up">▲</button>
+      <button data-k="left" class="d left">◀</button>
+      <button data-k="right" class="d right">▶</button>
+      <button data-k="down" class="d down">▼</button>
+    </div>
+    <div id="mid">
+      <button data-k="start" class="s">MENU</button>
+      <button id="mute" class="s">BUNYI</button>
+    </div>
+    <div id="ab">
+      <button data-k="b" class="r b">B</button>
+      <button data-k="a" class="r a">A</button>
+    </div>
+  </div>
+  <p id="help">Kawalan: Anak panah / WASD = gerak &nbsp;·&nbsp; Z / Space = A (pilih) &nbsp;·&nbsp; X / Shift = B (batal, tahan untuk lari) &nbsp;·&nbsp; Enter = Menu &nbsp;·&nbsp; M = bunyi</p>
+</div>
+<div id="nameBox" class="hidden">
+  <div class="nb">
+    <label id="nameLabel">Nama kamu?</label>
+    <input id="nameInput" maxlength="10" autocomplete="off">
+    <button id="nameOk">OK</button>
+  </div>
+</div>
+<script src="js/engine.js"></script>
+<script src="js/gfx.js"></script>
+<script src="js/data.js"></script>
+<script src="js/monsta.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/menus.js"></script>
+<script src="js/world.js"></script>
+<script src="js/story.js"></script>
+<script src="js/maps/dalam.js"></script>
+<script src="js/maps/utara.js"></script>
+<script src="js/maps/tengah.js"></script>
+<script src="js/maps/selatan.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
