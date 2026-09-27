@@ -62,7 +62,7 @@ const path = require('path');
     if (!ok) { console.log('   log:', (await ev(() => AUTO.log.slice(-6))).join(' | ')); await shot('gagal_' + label.replace(/\W+/g, '_')); }
     return ok;
   };
-  const talk = async key => { await ev(() => S.party.forEach(healMon)); const r = await ev(k => TT.talk(k), key); if (r !== 'ok') console.log('  ', r); await page.waitForTimeout(100); await idle(); };
+  const talk = async key => { await page.waitForTimeout(150); await idle(); await ev(() => S.party.forEach(healMon)); const r = await ev(k => TT.talk(k), key); if (r !== 'ok') console.log('  ', r); await page.waitForTimeout(100); await idle(); };
   const step = async (x, y, d) => { await ev(([x, y, d]) => TT.stepTo(x, y, d), [x, y, d]); await page.waitForTimeout(400); await idle(); };
   const go = async (id, x, y, dir, doorOf) => { await ev(([id, x, y, dir, doorOf]) => TT.go(id, x, y, dir, doorOf), [id, x, y, dir, doorOf]); await page.waitForTimeout(100); };
 

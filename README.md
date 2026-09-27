@@ -6,7 +6,7 @@ Permainan RPG pengembaraan Monsta berasaskan pelayar web, dengan jalan cerita da
 
 ## Versi 2.0: Jejak Sejarah
 
-- **Grafik 3D** (Three.js): dunia voxel/low-poly dengan bayang-bayang, bangunan 3D, Monsta voxel yang dijana daripada sprite, arena pertarungan sinematik dengan kesan zarah. Beralih ke grafik 2D secara automatik jika WebGL tiada.
+- **Grafik 3D gaya diorama** (Three.js): tanah bertekstur yang dilukis, rumpun rumput, bunga dan pokok bulat, watak chibi, Monsta plush yang licin, cahaya matahari hangat dengan bayang lembut dan kesan tilt-shift. Arena pertarungan padang rumput dengan panel krim klasik. Pilihan grafik: 3D Tinggi / 3D Rendah / 2D Klasik (diturunkan secara automatik pada peranti perlahan; beralih ke 2D jika WebGL tiada).
 - **Mudah alih & web**: potret **9:16** di telefon (joystick + butang A/B) dan landskap **16:9** di komputer.
 - **Log masuk Google**: simpanan awan (Firebase) untuk main di mana-mana peranti.
 - **Cerita lebih panjang, 13 bab**, dengan **sejarah Malaysia**:
