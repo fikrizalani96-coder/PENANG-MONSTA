@@ -29,17 +29,24 @@ const SaveFile = {
     if (!ok) return { error: 'Fail ini bukan fail simpanan Monsta yang sah.' };
     return { save: data };
   },
-  exportFile() {
+  async exportFile() {
     if (!S) { Cloud.toast('Mulakan atau sambung permainan dahulu.'); return; }
     saveGame();
-    const pack = this.pack(S);
+    const pack = this.pack(S), json = JSON.stringify(pack);
     const d = new Date(), pad = n => String(n).padStart(2, '0');
     const name = `monsta-${(S.name || 'pemain').toLowerCase().replace(/[^a-z0-9]+/g, '')}-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
-    const url = URL.createObjectURL(new Blob([JSON.stringify(pack)], { type: 'application/json' }));
+    const done = () => { this.$('saveNote').textContent = `Fail "${name}" telah disimpan. Simpan di tempat selamat (contoh: Google Drive).`; Cloud.toast('Simpanan dieksport ke fail ✔'); };
+    // Dalam paparan claude.ai, muat turun mesti melalui keupayaan "downloads"
+    const dl = window.claude && typeof claude.use === 'function' ? await claude.use('downloads').catch(() => null) : null;
+    if (dl) {
+      try { await dl.save({ filename: name, data: json }); done(); }
+      catch (e) { this.$('saveNote').textContent = e && e.code === 'declined' ? 'Eksport dibatalkan.' : 'Eksport tidak dapat dibuat di sini.'; }
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
     const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
-    this.$('saveNote').textContent = `Fail "${name}" telah dimuat turun. Simpan di tempat selamat (contoh: Google Drive).`;
-    Cloud.toast('Simpanan dieksport ke fail ✔');
+    done();
   },
   init() {
     this.$('btnExport').onclick = () => this.exportFile();
