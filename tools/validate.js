@@ -83,6 +83,8 @@ for (const id in MAPS) {
   if (id === 'dewan') starts.push([4, 6]);
   const seen = new Set(); const q = [];
   const surfOK = !!m.surfMap;
+  const blockers = new Set();
+  for (const mk of m.marks) { const d = defs[mk.ch]; if (d && !d.show && !d.trig && !d.hid && !d.item && (d.sign || d.s || d.ball) && !d.move) blockers.add(mk.x + ',' + mk.y); }
   for (const s of starts) { const key = s + ''; if (!seen.has(key)) { seen.add(key); q.push(s); } }
   while (q.length) {
     const [x, y] = q.shift();
@@ -91,6 +93,7 @@ for (const id in MAPS) {
       const c = m.base[ny] && m.base[ny][nx]; if (!c) continue;
       if (c === 'L') { if (dy !== 1) continue; ny++; nx = nx; const c2 = m.base[ny] && m.base[ny][nx]; if (!c2 || !isWalk(c2)) continue; }
       else if (!(isWalk(c) || (surfOK && isWater(c)))) continue;
+      if (blockers.has(nx + ',' + ny)) continue;
       const key = nx + ',' + ny; if (seen.has(key)) continue; seen.add(key); q.push([nx, ny]);
     }
   }
@@ -104,7 +107,7 @@ for (const id in MAPS) {
   // kawasan terputus dari pintu masuk utama
   const regions = [];
   const all = new Set();
-  m.base.forEach((r, y) => r.forEach((c, x) => { if (isWalk(c) && c !== 'L') all.add(x + ',' + y); }));
+  m.base.forEach((r, y) => r.forEach((c, x) => { if (isWalk(c) && c !== 'L' && !blockers.has(x + ',' + y)) all.add(x + ',' + y); }));
   const unreached = [...all].filter(k => !seen.has(k));
   if (unreached.length > 0 && unreached.length < 400) {
     if (m.outdoor || m.inside || m.cave) warn(id, `${unreached.length} petak boleh jejak tidak tercapai cth ${unreached.slice(0, 4).join(' ')}`);
