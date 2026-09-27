@@ -2,74 +2,72 @@
 
 This guide takes the game from this repository to a live website that earns money from ads and optional purchases.
 
-The game runs without any setup. It saves to the browser, and purchases are simulated on `localhost` / `file://`. Google login, cloud saves, real payments and real ads only switch on after you complete the steps below.
+The game runs without any setup. It saves to the browser, and purchases are simulated on `localhost` / `file://`. Real payments and real ads only switch on after you complete the steps below.
 
-| Part | Service | Cost to start |
+| Part | Service | Status |
 |---|---|---|
-| Hosting + Google login + cloud saves | Firebase (Hosting, Authentication, Firestore) | Free tier (Spark), but Functions needs the Blaze pay-as-you-go plan |
-| Payments (RM, FPX, cards) | Stripe Malaysia + 2 Cloud Functions | No monthly fee; Stripe takes a fee per transaction |
-| Ads | Google AdSense, H5 Games Ads (Ad Placement API) | Free; needs approval |
+| Database, cloud saves, payment server | Supabase project `monsta-seberang-perai` (Singapore) | **Done**: tables, security rules and 2 Edge Functions are live |
+| Google login | Supabase Auth + a Google Cloud OAuth client | **You**: create the Google client and paste it into Supabase (step 2) |
+| Hosting the website | GitHub Pages or Cloudflare Pages (free) | **You**: switch it on (step 1) |
+| Payments (RM, FPX, cards) | Stripe Malaysia | **You**: log in, then paste 2 keys into Supabase (step 3) |
+| Ads | Google AdSense, H5 Games Ads | **You**: apply once the site is live (step 4) |
+
+Supabase project: <https://supabase.com/dashboard/project/aobpmnuvccntrjfsvxgf>
+The project URL and publishable key are already in `js/config.js`. The publishable key is designed to be public; the database is protected by row-level security.
 
 ---
 
-## 1. Firebase project
+## 1. Host the website
 
-1. Go to <https://console.firebase.google.com>, then **Add project** (for example `monsta-seberang-perai`).
-2. **Build → Authentication → Get started → Sign-in method → Google → Enable.**
-3. **Authentication → Settings → Authorized domains:** add your custom domain if you use one. `*.web.app` and `*.firebaseapp.com` are already there.
-4. **Build → Firestore Database → Create database**, in production mode. Choose region `asia-southeast1` (Singapore).
-5. **Project settings → General → Your apps → Web app (</>)**. Register it and copy the `firebaseConfig` object.
-6. Paste that object into `js/config.js` as `firebase: { ... }`. These values are public identifiers, not secrets.
-7. Upgrade the project to the **Blaze** plan (Cloud Functions requires it). Set a budget alert, for example RM20/month, under Google Cloud Billing.
+**Option A: GitHub Pages.** Open the repository's **Settings → Pages**, set **Source: Deploy from a branch**, and pick the branch (for example `main`) and `/ (root)`. The game appears at `https://fikrizalani96-coder.github.io/penang-monsta/`. Private repositories need a paid GitHub plan for Pages.
 
-## 2. Deploy hosting, rules and functions
+**Option B: Cloudflare Pages** (works with private repos on the free plan). Go to <https://dash.cloudflare.com> → **Workers & Pages → Create → Pages → Connect to Git**, pick the repository, leave the build command empty and set the output directory to `/`.
 
-```bash
-npm install -g firebase-tools
-firebase login
-firebase use --add            # pick your project
-cd functions && npm install && cd ..
-firebase deploy --only hosting,firestore:rules
-```
+Write down your final address; the next steps use it as `YOUR_SITE`.
 
-Your game is now live at `https://<project-id>.web.app`.
+## 2. Google login (Supabase Auth)
+
+1. **Create the Google OAuth client.** Go to <https://console.cloud.google.com/auth/branding>, create a project if asked, and fill in the consent screen:
+   - App name "Monsta Seberang Perai", your support email.
+   - Audience **External**, then **Publish app**.
+2. Go to <https://console.cloud.google.com/apis/credentials> → **Create credentials → OAuth client ID** → **Web application**:
+   - **Authorized JavaScript origins:** `YOUR_SITE` (origin only, for example `https://fikrizalani96-coder.github.io`).
+   - **Authorized redirect URIs:** `https://aobpmnuvccntrjfsvxgf.supabase.co/auth/v1/callback`
+   - Copy the **Client ID** and **Client secret**.
+3. **Paste them into Supabase:** <https://supabase.com/dashboard/project/aobpmnuvccntrjfsvxgf/auth/providers> → **Google** → enable, paste both values, and save.
+4. **Allow your site as a return address:** <https://supabase.com/dashboard/project/aobpmnuvccntrjfsvxgf/auth/url-configuration>
+   - **Site URL:** `YOUR_SITE`
+   - **Redirect URLs:** add `YOUR_SITE` (the full address including the path, for example `https://fikrizalani96-coder.github.io/penang-monsta/`) and `http://localhost:8080/` for testing.
+5. Open the game → **MENU → AKAUN → Log masuk dengan Google**. After signing in, **SIMPAN** saves to the cloud as well as the browser, and **Muat dari awan** restores it on another device.
 
 ## 3. Stripe (payments in RM)
 
-1. Create an account at <https://dashboard.stripe.com> with country **Malaysia**, and complete business verification. An individual/sole proprietor is fine.
-2. **Settings → Payment methods:** enable Cards, **FPX**, and GrabPay if you want. Checkout shows every enabled method automatically.
-3. Store your secret key in Firebase Secret Manager. Use a `sk_test_...` key first, then `sk_live_...` when ready:
-   ```bash
-   firebase functions:secrets:set STRIPE_SECRET
-   ```
-4. Deploy the functions once, so the webhook URL exists:
-   ```bash
-   firebase deploy --only functions
-   ```
-   Note the `stripeWebhook` URL it prints, for example `https://asia-southeast1-<project-id>.cloudfunctions.net/stripeWebhook`.
-5. In Stripe, go to **Developers → Webhooks → Add endpoint**:
-   - URL: the `stripeWebhook` URL from step 4.
-   - Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded`.
-   - Copy the **Signing secret** (`whsec_...`).
-6. Store the signing secret and redeploy:
-   ```bash
-   firebase functions:secrets:set STRIPE_WEBHOOK_SECRET
-   firebase deploy --only functions
-   ```
-7. If you use a custom domain, allow it as a checkout return URL:
-   ```bash
-   # functions/.env
-   ALLOWED_ORIGINS=https://monsta.my,https://www.monsta.my
-   ```
-8. Set `devPurchases: false` in `js/config.js` for production. It only works on localhost anyway.
-9. Test with a test key and card `4242 4242 4242 4242`. The item should appear in-game within a few seconds of returning from Stripe.
+1. **Log in or sign up:** <https://dashboard.stripe.com/register>. Choose country **Malaysia** and complete business verification (an individual/sole proprietor is fine).
+2. **Payment methods:** <https://dashboard.stripe.com/settings/payment_methods>. Enable Cards and **FPX**, plus GrabPay if you want. Checkout shows every enabled method automatically.
+3. **Secret key:** <https://dashboard.stripe.com/apikeys>. Copy the **Secret key**. Start with test mode (`sk_test_...`); switch to `sk_live_...` when you're ready to take real money.
+4. **Webhook:** <https://dashboard.stripe.com/webhooks> → **Add destination**:
+   - Endpoint URL: `https://aobpmnuvccntrjfsvxgf.supabase.co/functions/v1/stripe-webhook`
+   - Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `charge.refunded`
+   - After saving, copy the **Signing secret** (`whsec_...`).
+5. **Paste both into Supabase:** <https://supabase.com/dashboard/project/aobpmnuvccntrjfsvxgf/functions/secrets>
+
+   | Name | Value |
+   |---|---|
+   | `STRIPE_SECRET_KEY` | `sk_test_...` (later `sk_live_...`) |
+   | `STRIPE_WEBHOOK_SECRET` | `whsec_...` |
+
+   No redeploy is needed; secrets apply immediately.
+6. Test: sign in with Google in the game, open **KEDAI PREMIUM**, buy something and pay with test card `4242 4242 4242 4242` (any future date, any CVC). You return to the game, and the item arrives within a few seconds.
+7. Switching to live mode: repeat steps 3–5 with the live key, and create a live-mode webhook (it has its own `whsec_...`).
+
+Until the Stripe secrets are set, the shop tells players "Kedai Premium belum dibuka".
 
 ### Prices
 
-Prices are defined in two places that **must match**:
+Prices are defined in three places that **must match**:
 
 - `js/monetize.js`: what the shop shows.
-- `functions/skus.json`: what the server actually charges.
+- `supabase/functions/create-checkout/skus.json` and `supabase/functions/stripe-webhook/skus.json`: what the server actually charges and checks.
 
 `node tools/validate.js` fails if they differ, or if any item other than "Buang Iklan" reaches RM10.
 
@@ -86,11 +84,15 @@ Prices are defined in two places that **must match**:
 
 ### How a purchase flows
 
-1. The player taps an item. The game calls the `createCheckout` function, which requires a Google login.
+1. The player taps an item. The game calls the `create-checkout` Edge Function, which requires a Google login.
 2. The server looks up the price in `skus.json`, refuses a one-time item the player already owns, and creates a Stripe Checkout session in MYR.
 3. The player pays on Stripe's page and returns with `?bayar=berjaya`.
-4. Stripe calls `stripeWebhook`. The server verifies the signature and the amount, then writes `users/{uid}/purchases/{sessionId}` with `claimed: false`. For one-time items it also sets `users/{uid}.owned`, and for Buang Iklan it sets `noAds: true`.
-5. The game, listening on Firestore, sees the unclaimed purchase, marks it claimed, and adds the items to the save.
+4. Stripe calls `stripe-webhook`. The server verifies the signature and the amount, then records the purchase in the `purchases` table (once per Stripe session, so retries can't double-grant). For one-time items it also updates `entitlements.owned`, and for Buang Iklan it sets `no_ads`.
+5. The game checks for unclaimed purchases every few seconds after returning, marks them claimed, and adds the items to the save.
+
+### If you change the database or functions
+
+The SQL is in `supabase/migrations/` and the functions are in `supabase/functions/`. To redeploy with the Supabase CLI: `supabase link --project-ref aobpmnuvccntrjfsvxgf`, then `supabase db push` and `supabase functions deploy create-checkout --no-verify-jwt` / `supabase functions deploy stripe-webhook --no-verify-jwt`. Both functions check the caller themselves: the checkout function verifies the player's login, and the webhook verifies Stripe's signature.
 
 ## 4. Google AdSense (H5 Games Ads)
 
@@ -114,16 +116,18 @@ Players who bought **Buang Iklan** see no interstitials, and rewarded bonuses ar
 ## 5. Update the placeholders
 
 - `privasi.html` and `terma.html`: replace `sokongan@contoh.my` with your real support email, and review the text.
-- `js/config.js`: `firebase`, `adsenseClient`, `adsTest: false`, `devPurchases: false`.
+- `js/config.js`: `adsenseClient`, `adsTest: false`, `devPurchases: false`.
 - `ads.txt`: your publisher ID.
 
 ## 6. Custom domain (optional)
 
-**Firebase Hosting → Add custom domain** (for example `monsta.my` from a .my registrar). Then add it to:
+Add the domain in GitHub Pages or Cloudflare Pages (for example `monsta.my` from a .my registrar). Then add it to:
 
-- Authentication authorized domains.
-- `ALLOWED_ORIGINS` in `functions/.env`.
+- Google OAuth client: authorized JavaScript origins.
+- Supabase Auth URL configuration: Site URL and Redirect URLs.
 - AdSense sites.
+
+The payment function accepts any return address on the same site that started the checkout, so no extra payment setting is needed.
 
 ## Honest notes
 

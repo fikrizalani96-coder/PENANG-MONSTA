@@ -1,6 +1,6 @@
 'use strict';
-// ===== Pengewangan: iklan (Google H5 Games Ads) & Kedai Premium (Stripe melalui Firebase Functions) =====
-// Harga dalam sen (RM). Senarai yang sama WAJIB ada dalam functions/index.js (pelayan menentukan harga sebenar).
+// ===== Pengewangan: iklan (Google H5 Games Ads) & Kedai Premium (Stripe melalui Supabase Edge Functions) =====
+// Harga dalam sen (RM). Senarai yang sama WAJIB ada dalam supabase/functions/_shared/skus.json (pelayan menentukan harga sebenar).
 const SKUS = [
   { id: 'buang_iklan', name: 'Buang Iklan Selamanya', sen: 2990, desc: 'Tiada lagi iklan selingan. Semua ganjaran "tonton iklan" diberi terus. Sekali bayar, kekal pada akaun Google kamu.', once: true, hero: true },
   { id: 'pek_bola_hebat', name: 'Pek 10 Bola Hebat', sen: 290, desc: '10 × Bola Hebat untuk menangkap Monsta.', items: { 'Bola Hebat': 10 } },
@@ -45,7 +45,9 @@ const Monet = {
     // kembali dari Stripe
     const q = new URLSearchParams(location.search);
     if (q.get('bayar')) {
-      setTimeout(() => Cloud.toast(q.get('bayar') === 'berjaya' ? 'Terima kasih! Pembayaran berjaya. Barang akan dihantar ke permainan kamu sebentar lagi.' : 'Pembayaran dibatalkan.', 6000), 800);
+      const ok = q.get('bayar') === 'berjaya';
+      setTimeout(() => Cloud.toast(ok ? 'Terima kasih! Pembayaran berjaya. Barang akan dihantar ke permainan kamu sebentar lagi.' : 'Pembayaran dibatalkan.', 6000), 800);
+      if (ok) setTimeout(() => Cloud.pollPurchases(), 1500);
       history.replaceState(null, '', location.pathname);
     }
   },
@@ -126,9 +128,9 @@ const Monet = {
       try {
         saveGame();
         Cloud.toast('Membuka halaman pembayaran selamat…', 8000);
-        const r = await Cloud.call('createCheckout', { sku: id, returnUrl: location.origin + location.pathname });
+        const r = await Cloud.call('create-checkout', { sku: id, returnUrl: location.origin + location.pathname });
         if (r && r.url) location.href = r.url; else Cloud.toast('Gagal membuka pembayaran.');
-      } catch (e) { Cloud.toast(e.code === 'functions/already-exists' ? 'Kamu sudah memiliki item ini.' : 'Ralat pembayaran: ' + (e.message || e)); }
+      } catch (e) { Cloud.toast(e.code === 'already_owned' ? 'Kamu sudah memiliki item ini.' : 'Ralat pembayaran: ' + (e.message || e), 6000); }
       return;
     }
     if (IS_DEV && CONFIG.devPurchases) {

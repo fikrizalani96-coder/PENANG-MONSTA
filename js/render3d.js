@@ -522,6 +522,8 @@ vec3 atl(float i, vec2 p){
     const dens = hi ? 1 : .5;
     const FLW = [0xffffff, 0xfff1a0, 0xffa4b4, 0xff6a5a, 0xffd24a, 0xc8b4ff];
     const tint = (x, y, s, v = .12) => { const k = 1 + (hash(x, y, s) - .5) * v; return new THREE.Color(k, k, k).getHex(); };
+    const walkable = c => WALK.has(c) || /\d/.test(c) || c === '~' || c === 'w';
+    const nearWalk = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && walkable(cell(x + dx, y + dy))) return true; return false; };
     const deco = (x, y, cx, cz, extra = 0) => {
       const n = Math.round((2 + extra) * dens + hash(x, y, 30));
       for (let i = 0; i < n; i++) {
@@ -531,7 +533,6 @@ vec3 atl(float i, vec2 p){
       const hf = hash(x, y, 50);
       if (hf < .1 * (hi ? 1 : .6)) { const nf = 1 + Math.floor(hash(x, y, 51) * 3); for (let i = 0; i < nf; i++) add('flower', cx + (hash(x, y, 52 + i) - .5) * .8, 0, cz + (hash(x, y, 55 + i) - .5) * .8, 1, .8 + hash(x, y, 58 + i) * .5, 1, FLW[Math.floor(hash(x, y, 60 + i) * FLW.length)], hash(x, y, 61 + i) * 6); }
       if (hash(x, y, 70) < .07) add('rosette', cx + (hash(x, y, 71) - .5) * .7, .01, cz + (hash(x, y, 72) - .5) * .7, 1, 1, 1, 0xffffff, hash(x, y, 73) * 6);
-      if (hash(x, y, 80) < .02) { const s = .14 + hash(x, y, 81) * .12; add('rock', cx + (hash(x, y, 82) - .5) * .6, s * .3, cz + (hash(x, y, 83) - .5) * .6, s * 1.2, s, s, 0xffffff, hash(x, y, 84) * 6); }
     };
     for (let y = -M; y < H + M; y++) for (let x = -M; x < W + M; x++) {
       const ch = cell(x, y), h = hash(x + 50, y + 50), cx = x + .5, cz = y + .5;
@@ -544,7 +545,7 @@ vec3 atl(float i, vec2 p){
           add('rosette', cx, .01, cz, 1.2, 1, 1.2, 0xffffff, h * 6);
         } break;
         case 'T': {
-          const s = .9 + h * .4;
+          const s = nearWalk(x, y) ? .76 + h * .07 : .9 + h * .4;
           if (theme === 'bakau') {
             add('trunk', cx, 0, cz, 1.1, .9, 1.1, 0xb0a090);
             add('root', cx - .2, .15, cz, .5, .5, .5, 0x4a3420, h * 3, .6); add('root', cx + .2, .15, cz, .5, .5, .5, 0x4a3420, h * 3 + 2, -.6);
@@ -563,11 +564,11 @@ vec3 atl(float i, vec2 p){
           break;
         }
         case 't': {
-          const hd = add('bush', cx, 0, cz, 1.25, 1.2, 1.25, tint(x, y, 5), h * 5);
+          const hd = add('bush', cx, 0, cz, 1.05, 1.15, 1.05, tint(x, y, 5), h * 5);
           if (inMap) bushes[x + ',' + y] = [hd];
           break;
         }
-        case 'r': add('rock', cx, .25, cz, .95, .7, .85, 0xffffff, h * 6); if (outdoor) deco(x, y, cx, cz, -1); break;
+        case 'r': add('rock', cx, .25, cz, .9, .7, .85, 0xffffff, h * 6); if (outdoor) deco(x, y, cx, cz, -1); break;
         case '^': case 'x': {
           const cave = ch === 'x' || m.cave || !outdoor;
           const wall = c => c === 'x' || c === '^' || c === 'X';
@@ -577,7 +578,6 @@ vec3 atl(float i, vec2 p){
           add('cube', cx, hh / 2, cz, 1.01, hh, 1.01, c1);
           if (edge) {
             add('rock', cx + (h - .5) * .2, hh - .06, cz + (hash(x, y, 4) - .5) * .2, 1.05, .32, 1.05, cave ? 0xb08a66 : 0xe0d6c4, h * 6);
-            if (hash(x, y, 6) < .4) add('rock', cx + (hash(x, y, 7) - .5) * .5, .14, cz + (hash(x, y, 8) - .5) * .5, .5, .38, .45, cave ? 0xa88262 : 0xd8ccb4, h * 9);
           }
           break;
         }
@@ -651,7 +651,7 @@ vec3 atl(float i, vec2 p){
       if (BUILD.has(above)) continue;
       const look = d.look || (m.outdoor ? 'gua' : 'tangga');
       if (look === 'tangga') for (let i = 0; i < 4; i++) add('cube', x + .5, .06 + i * .12, y + .2 + i * .18, .9, .12 + i * .24, .2, 0xc8a878);
-      else if (look === 'gua') { add('rock', x + .5, .8, y + .1, 1.5, 1.8, .8, 0xb09070); add('cube', x + .5, .5, y + .42, .66, 1, .06, 0x0a0806); }
+      else if (look === 'gua') { add('rock', x + .5, .8, y + .15, 1, 1.8, .6, 0xb09070); add('cube', x + .5, .5, y + .42, .66, 1, .06, 0x0a0806); }
       else if (look === 'kapal') { add('cube', x + .5, .6, y + .1, 1, 1.2, .2, 0xe8e8e8); add('cube', x + .5, .5, y + .2, .6, .9, .1, 0x3a4a6a); }
       else if (look === 'portal') {
         const pg = new THREE.Group();

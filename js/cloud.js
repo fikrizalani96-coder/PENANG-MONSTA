@@ -1,15 +1,13 @@
 'use strict';
-// ===== Akaun Google & simpanan awan (Firebase Auth + Firestore) =====
+// ===== Akaun Google & simpanan awan (Supabase Auth + Postgres) =====
+// Jadual: saves (simpanan), entitlements (Buang Iklan/kostum), purchases (pembelian Stripe).
 const Cloud = {
-  ready: false, user: null, db: null, auth: null, fns: null, owned: {}, noAds: false,
+  ready: false, user: null, sb: null, owned: {}, noAds: false,
   $(id) { return document.getElementById(id); },
   toast(msg, ms = 3200) {
     const t = this.$('toast'); if (!t) return;
     t.textContent = msg; t.classList.remove('hidden');
     clearTimeout(this._tt); this._tt = setTimeout(() => t.classList.add('hidden'), ms);
-  },
-  loadScript(src) {
-    return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Gagal memuat ' + src)); document.head.appendChild(s); });
   },
   async init() {
     this.$('btnGoogle').onclick = () => this.signIn();
@@ -23,35 +21,41 @@ const Cloud = {
     };
     this.$('acctClose').onclick = () => this.closePanel();
     this.refreshPanel();
-    if (!CONFIG.firebase) return;
-    const v = CONFIG.firebaseVersion, base = `https://www.gstatic.com/firebasejs/${v}/`;
+    const C = CONFIG.supabase;
+    if (!C || !window.supabase) return;
     try {
-      await this.loadScript(base + 'firebase-app-compat.js');
-      await Promise.all(['auth', 'firestore', 'functions'].map(m => this.loadScript(base + `firebase-${m}-compat.js`)));
-      firebase.initializeApp(CONFIG.firebase);
-      this.auth = firebase.auth(); this.db = firebase.firestore(); this.fns = firebase.app().functions(CONFIG.functionsRegion);
+      this.sb = supabase.createClient(C.url, C.key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' } });
       this.ready = true;
-      this.auth.getRedirectResult().catch(e => console.warn(e));
-      this.auth.onAuthStateChanged(u => {
-        this.user = u; this.refreshPanel();
-        if (this._unsub) { this._unsub.forEach(f => f()); this._unsub = null; }
-        if (u) { this.listen(u.uid); this.toast('Log masuk sebagai ' + (u.displayName || u.email)); }
-        else { this.owned = {}; this.noAds = false; }
-      });
-    } catch (e) { console.warn('Firebase tidak dapat dimuat', e); this.refreshPanel(); }
+      this.sb.auth.onAuthStateChange((ev, session) => { setTimeout(() => this.setUser(session ? session.user : null, ev), 0); });
+      const { data } = await this.sb.auth.getSession();
+      this.setUser(data.session ? data.session.user : null, 'INITIAL');
+      // semak pembelian apabila pemain kembali ke tab
+      document.addEventListener('visibilitychange', () => { if (!document.hidden && this.user) this.sync(); });
+    } catch (e) { console.warn('Supabase tidak dapat dimulakan', e); this.ready = false; this.refreshPanel(); }
   },
+  setUser(u, ev) {
+    const was = this.user && this.user.id;
+    this.user = u;
+    this.refreshPanel();
+    if (u && u.id !== was) {
+      if (ev === 'SIGNED_IN') this.toast('Log masuk sebagai ' + this.displayName());
+      this.sync();
+    }
+    if (!u) { this.owned = {}; this.noAds = false; }
+  },
+  displayName() { const u = this.user; if (!u) return ''; const m = u.user_metadata || {}; return m.full_name || m.name || u.email || 'Pemain'; },
   refreshPanel() {
     const st = this.$('acctStatus'), note = this.$('acctNote');
     const inBox = this.$('acctIn'), g = this.$('btnGoogle');
-    if (!CONFIG.firebase || !this.ready) {
+    if (!CONFIG.supabase || !this.ready) {
       st.textContent = 'Log masuk Google belum diaktifkan pada laman ini. Kemajuan disimpan dalam pelayar ini.';
       g.disabled = true; g.style.opacity = .5; inBox.classList.add('hidden');
-      note.textContent = IS_DEV ? 'Pembangun: isi CONFIG.firebase dalam js/config.js (lihat LAUNCH.md).' : '';
+      note.textContent = IS_DEV && !CONFIG.supabase ? 'Pembangun: isi CONFIG.supabase dalam js/config.js (lihat LAUNCH.md).' : '';
       return;
     }
     g.disabled = false; g.style.opacity = 1;
     if (this.user) {
-      st.textContent = `Log masuk sebagai ${this.user.displayName || ''} (${this.user.email}). Kemajuan disimpan ke awan secara automatik setiap kali kamu SIMPAN.`;
+      st.textContent = `Log masuk sebagai ${this.displayName()}${this.user.email ? ' (' + this.user.email + ')' : ''}. Kemajuan disimpan ke awan secara automatik setiap kali kamu SIMPAN.`;
       g.classList.add('hidden'); inBox.classList.remove('hidden');
       note.textContent = this.noAds ? '✔ Iklan telah dibuang untuk akaun ini.' : '';
     } else {
@@ -68,57 +72,56 @@ const Cloud = {
     this.$('acct').classList.add('hidden'); Input.enabled = true; Input.clear();
     if (this._close) { const r = this._close; this._close = null; r(); }
   },
-  signIn() {
+  async signIn() {
     if (!this.ready) return;
-    const p = new firebase.auth.GoogleAuthProvider();
-    p.setCustomParameters({ prompt: 'select_account' });
-    if (IS_TOUCH) { if (S) saveGame(); this.auth.signInWithRedirect(p); return; }
-    this.auth.signInWithPopup(p).catch(e => {
-      if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') this.auth.signInWithRedirect(p);
-      else if (e.code !== 'auth/popup-closed-by-user') this.toast('Log masuk gagal: ' + e.message);
+    if (S) saveGame(); // simpan dahulu kerana halaman akan beralih ke Google
+    const { error } = await this.sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } }
     });
+    if (error) this.toast('Log masuk gagal: ' + error.message, 6000);
   },
-  signOut() { if (this.auth) this.auth.signOut(); this.toast('Log keluar.'); },
-  listen(uid) {
-    this._unsub = [];
-    this._unsub.push(this.db.doc(`users/${uid}`).onSnapshot(d => {
-      const v = d.data() || {};
-      this.owned = v.owned || {}; this.noAds = !!v.noAds;
-      if (this.noAds && S) S.noAds = true;
-      if (S && this.owned.buang_iklan === false) { S.noAds = false; if (S.owned) delete S.owned.buang_iklan; }
-      this.refreshPanel(); if (window.Monet) Monet.renderShop();
-    }, e => console.warn(e)));
-    this._unsub.push(this.db.collection(`users/${uid}/purchases`).where('claimed', '==', false).onSnapshot(q => {
-      q.forEach(async doc => {
-        const p = doc.data();
-        if (!S) { this._pending = (this._pending || []).concat([[doc.ref, p]]); return; }
-        await this.claim(doc.ref, p);
-      });
-    }, e => console.warn(e)));
-  },
-  async claim(ref, p) {
+  async signOut() { if (this.sb) await this.sb.auth.signOut(); this.toast('Log keluar.'); },
+  // Ambil hak milik & tuntut pembelian baharu
+  async sync() {
+    if (!this.user) return;
     try {
-      await ref.update({ claimed: true, claimedAt: firebase.firestore.FieldValue.serverTimestamp() });
-      Monet.grant(p.sku, true);
-    } catch (e) { console.warn('Tuntutan gagal', e); }
+      const { data, error } = await this.sb.from('entitlements').select('owned, no_ads').eq('user_id', this.user.id).maybeSingle();
+      if (!error) {
+        this.owned = (data && data.owned) || {}; this.noAds = !!(data && data.no_ads);
+        if (S) { if (this.noAds) S.noAds = true; if (this.owned.buang_iklan === false) { S.noAds = false; if (S.owned) delete S.owned.buang_iklan; } }
+        this.refreshPanel(); if (window.Monet) Monet.renderShop();
+      }
+      if (!S) { this._needClaim = true; return; }
+      const r = await this.sb.rpc('claim_purchases');
+      if (r.error) { console.warn(r.error); return; }
+      for (const p of r.data || []) Monet.grant(p.sku, true);
+    } catch (e) { console.warn('Segerak gagal', e); }
   },
-  flushPending() { if (this._pending && S) { const l = this._pending; this._pending = null; l.forEach(([r, p]) => this.claim(r, p)); } },
+  // dipanggil selepas permainan dimuat (S wujud)
+  flushPending() { if (this._needClaim && S) { this._needClaim = false; this.sync(); } },
+  // tinjau pembelian selepas kembali dari Stripe (webhook mungkin lambat beberapa saat)
+  pollPurchases(ms = 60000) {
+    const t0 = Date.now();
+    const tick = async () => { if (!this.user || Date.now() - t0 > ms) return; await this.sync(); setTimeout(tick, 4000); };
+    tick();
+  },
   async saveCloud() {
     if (!this.user || !S) return false;
     try {
-      await this.db.doc(`saves/${this.user.uid}`).set({
-        data: JSON.stringify(S), savedAt: S.savedAt || Date.now(), name: S.name, badges: S.badges.length,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      const { error } = await this.sb.from('saves').upsert({
+        user_id: this.user.id, data: S, name: S.name, badges: S.badges.length, saved_at: S.savedAt || Date.now(), updated_at: new Date().toISOString()
       });
+      if (error) throw error;
       return true;
     } catch (e) { console.warn(e); return false; }
   },
   async loadCloud() {
     if (!this.user) return null;
     try {
-      const d = await this.db.doc(`saves/${this.user.uid}`).get();
-      if (!d.exists) return null;
-      const s = JSON.parse(d.data().data); s._cloud = true; return s;
+      const { data, error } = await this.sb.from('saves').select('data').eq('user_id', this.user.id).maybeSingle();
+      if (error || !data) return null;
+      const s = data.data; s._cloud = true; return s;
     } catch (e) { console.warn(e); return null; }
   },
   // Pilih simpanan terbaharu antara pelayar dan awan
@@ -130,9 +133,15 @@ const Cloud = {
     if (!local || (cloud.savedAt || 0) > (local.savedAt || 0)) return cloud;
     return local;
   },
-  async call(name, data) {
-    const f = this.fns.httpsCallable(name);
-    const r = await f(data); return r.data;
+  // Panggil Edge Function Supabase
+  async call(name, body) {
+    const { data, error } = await this.sb.functions.invoke(name, { body });
+    if (error) {
+      let msg = error.message;
+      try { const j = await error.context.json(); if (j && j.error) msg = j.error; if (j && j.code) error.code = j.code; } catch (e) { }
+      const err = new Error(msg); err.code = error.code; throw err;
+    }
+    return data;
   }
 };
 window.Cloud = Cloud;

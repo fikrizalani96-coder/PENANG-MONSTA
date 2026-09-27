@@ -5,11 +5,14 @@ out, demo = sys.argv[1], '--demo' in sys.argv
 s = open(os.path.join(root, 'index.html'), encoding='utf-8').read()
 def js(m):
     src = m.group(1)
+    if demo and src == 'vendor/supabase.js':
+        return ''  # demo artifact: tiada log masuk (OAuth tidak boleh berjalan dalam bingkai artifact)
     if src == 'vendor/three.min.js':
         return '<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>'
     code = open(os.path.join(root, src), encoding='utf-8').read()
     if demo and src == 'js/config.js':
         code = code.replace("const IS_DEV = location.protocol", "const IS_DEV = true || location.protocol")
+        code = code.replace("const CONFIG = {", "const CONFIG = { demo: true,") + "\nCONFIG.supabase = null;\n"
     return '<script>\n' + code.replace('</script', '<\\/script') + '\n</script>'
 s = re.sub(r'<script src="([^"]+)"></script>', js, s)
 css = open(os.path.join(root, 'style.css'), encoding='utf-8').read()

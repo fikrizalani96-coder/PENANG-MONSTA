@@ -97,9 +97,17 @@ const World = {
   },
   mkObj(d, mk) {
     return {
-      def: d, key: mk.ch, x: mk.x, y: mk.y, hx: mk.x, hy: mk.y, px: mk.x * 16, py: mk.y * 16, dir: d.d || 'down', moving: null, t: Math.random() * 2,
-      block: !(d.trig || d.hid), frame: 0
+      def: d, key: mk.ch, x: mk.x, y: mk.y, hx: mk.x, hy: mk.y, px: mk.x * 16, py: mk.y * 16, dir: d.d || 'down', moving: null, t: 1 + Math.random() * 3,
+      block: !(d.trig || d.hid), frame: 0, auto: this.autoMove(d, mk)
     };
+  },
+  // Penduduk biasa (dialog sahaja, bukan penghalang cerita) bergerak/berpaling supaya dunia terasa hidup
+  autoMove(d, mk) {
+    if (!d.s || d.move || d.tr || d.run || !d.t || d.show || d.u || d.still) return null;
+    const m = this.map; if (!m || !m.outdoor) return 'look';
+    let open = 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const c = m.base[mk.y + dy] && m.base[mk.y + dy][mk.x + dx]; if (c && WALK.has(c) && c !== ',' && c !== 'L') open++; }
+    return open >= 3 && hash(mk.x, mk.y, 5) < .6 ? 'wander' : 'look';
   },
   itemFlag(mk) { return `it:${this.map.id}:${mk.ch}:${mk.x},${mk.y}`; },
   trFlag(o) { return o.def.tr.id || `tr:${this.map.id}:${o.key}`; },
@@ -230,19 +238,20 @@ const World = {
         continue;
       }
       if (this.busy) continue;
-      const mvT = o.def.move;
+      const mvT = o.def.move || o.auto;
       if (!mvT) continue;
       o.t -= dt;
       if (o.t > 0) continue;
-      o.t = 1 + Math.random() * 2.5;
+      o.t = mvT === o.auto ? 2 + Math.random() * 4 : 1 + Math.random() * 2.5;
       if (mvT === 'spin') { o.dir = pick(['up', 'down', 'left', 'right']); continue; }
+      if (mvT === 'look') { o.dir = Math.random() < .4 ? (o.def.d || 'down') : pick(['up', 'down', 'left', 'right']); continue; }
       if (mvT === 'wander') {
         const d = pick(['up', 'down', 'left', 'right']), [dx, dy] = DIRS[d];
         o.dir = d;
         const nx = o.x + dx, ny = o.y + dy, p = this.p;
-        if (Math.abs(nx - o.hx) > 2 || Math.abs(ny - o.hy) > 2) continue;
+        const rad = o.def.move ? 2 : 1; if (Math.abs(nx - o.hx) > rad || Math.abs(ny - o.hy) > rad) continue;
         if (!this.passable(nx, ny) || (nx === p.x && ny === p.y) || (p.moving && nx === p.moving.tx && ny === p.moving.ty)) continue;
-        const tl = this.tile(nx, ny); if (/\d/.test(tl) || tl === 'E' || tl === ',' ) continue;
+        const tl = this.tile(nx, ny); if (/\d/.test(tl) || tl === 'E' || tl === ',' || tl === 'L' || isWater(tl)) continue;
         if (this.objs.some(q => q.def.trig && q.x === nx && q.y === ny)) continue;
         o.moving = { fx: o.x, fy: o.y, tx: nx, ty: ny, t: 0, dur: .3, alt: Math.random() < .5 };
       }

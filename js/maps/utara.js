@@ -590,7 +590,7 @@ MAPS.laluan4 = {
         await World.trainerFight(o);
       }
     },
-    Z: { s: 'johan', d: 'down', u: 'b', show: () => !flag('rival3') },
+    Z: { s: 'johan', d: 'down', u: 'b', show: () => !flag('rival3'), t: '{R}: Hei! Tunggu dulu!' },
     V: {
       u: '=', if: () => !flag('rival3'), trig: async () => {
         const r = obj('Z');

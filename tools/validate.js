@@ -139,13 +139,16 @@ for (const id in MAPS) if (!ref.has(id) && !MAPS[id].scriptOnly) warn(id, 'peta 
 {
   const msrc = fs.readFileSync(path.join(root, 'js', 'monetize.js'), 'utf8').split('const rm =')[0];
   const SK = new Function('LOOKS', msrc + ';return SKUS;')({});
-  const srv = JSON.parse(fs.readFileSync(path.join(root, 'functions', 'skus.json'), 'utf8'));
-  for (const k of SK) {
-    const v = srv[k.id];
-    if (!v || v.sen !== k.sen || v.once !== !!k.once) err('harga', `${k.id} tidak sepadan dengan functions/skus.json`);
-    if (k.id === 'buang_iklan' ? k.sen !== 2990 : k.sen >= 1000) err('harga', `${k.id} harga ${k.sen} sen di luar julat`);
+  for (const fn of ['create-checkout', 'stripe-webhook']) {
+    const file = `supabase/functions/${fn}/skus.json`;
+    const srv = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
+    for (const k of SK) {
+      const v = srv[k.id];
+      if (!v || v.sen !== k.sen || v.once !== !!k.once) err('harga', `${k.id} tidak sepadan dengan ${file}`);
+    }
+    for (const id in srv) if (!SK.some(k => k.id === id)) err('harga', `${id} ada dalam ${file} tetapi tiada dalam permainan`);
   }
-  for (const id in srv) if (!SK.some(k => k.id === id)) err('harga', `${id} ada di pelayan tetapi tiada dalam permainan`);
+  for (const k of SK) if (k.id === 'buang_iklan' ? k.sen !== 2990 : k.sen >= 1000) err('harga', `${k.id} harga ${k.sen} sen di luar julat`);
   console.log('item premium disemak: ' + SK.length);
 }
 console.log('serpihan disemak: ' + ctx.FRAGS.length); console.log(`\n${Object.keys(MAPS).length} peta, ${errs} ralat, ${warns} amaran`);

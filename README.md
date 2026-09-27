@@ -8,14 +8,14 @@ Permainan RPG pengembaraan Monsta berasaskan pelayar web, dengan jalan cerita da
 
 - **Grafik 3D gaya diorama** (Three.js): tanah bertekstur yang dilukis, rumpun rumput, bunga dan pokok bulat, watak chibi, Monsta plush yang licin, cahaya matahari hangat dengan bayang lembut dan kesan tilt-shift. Arena pertarungan padang rumput dengan panel krim klasik. Pilihan grafik: 3D Tinggi / 3D Rendah / 2D Klasik (diturunkan secara automatik pada peranti perlahan; beralih ke 2D jika WebGL tiada).
 - **Mudah alih & web**: potret **9:16** di telefon (joystick + butang A/B) dan landskap **16:9** di komputer.
-- **Log masuk Google**: simpanan awan (Firebase) untuk main di mana-mana peranti.
+- **Log masuk Google**: simpanan awan (Supabase) untuk main di mana-mana peranti.
 - **Cerita lebih panjang, 13 bab**, dengan **sejarah Malaysia**:
   - 12 **Serpihan Sejarah** tersembunyi di Seberang Perai, dari Guar Kepah prasejarah hingga pembentukan Malaysia.
   - **Muzium Sejarah** Butterworth dengan hadiah daripada kurator.
   - Selepas menjadi Juara: arka pasca-permainan **Lorong Masa**, 6 zaman (Guar Kepah purba, Kedah Tua, Kuala Perai 1800, ladang tebu abad ke-19, Butterworth 1941, Merdeka 1957), 6 Panglima Bayangan dan Pendeta Kelam.
 - **Pengewangan**: iklan Google H5 Games (selingan + berganjaran pilihan) dan **Kedai Premium** melalui Stripe. Buang Iklan RM29.90 (sekali bayar); semua item lain bawah RM10.
 
-Lihat **[LAUNCH.md](LAUNCH.md)** untuk panduan pelancaran (Firebase, Stripe, AdSense).
+Lihat **[LAUNCH.md](LAUNCH.md)** untuk panduan pelancaran (Supabase, log masuk Google, Stripe, AdSense).
 
 ## Cara bermain
 
@@ -70,7 +70,7 @@ Penaga → Laluan 1 → Guar Perahu → Hutan Bakau → **Teluk Ayer Tawar** →
 
 ```
 index.html, style.css
-js/config.js     tetapan pelancaran (Firebase, AdSense)
+js/config.js     tetapan pelancaran (Supabase, AdSense)
 js/engine.js     kanvas responsif 9:16 / 16:9, input sentuh, dialog, bunyi & muzik
 js/render3d.js   pemapar 3D (Three.js): dunia, pertarungan, pameran Monsta
 js/gfx.js        jubin, bangunan, watak, penjana sprite Monsta
@@ -84,8 +84,8 @@ js/sejarah.js    Serpihan Sejarah, Buku Sejarah, bab cerita, kurator muzium
 js/cloud.js      log masuk Google, simpanan awan, tuntutan pembelian
 js/monetize.js   iklan H5 Games & Kedai Premium
 js/maps/*.js     peta (utara, tengah, selatan, dalaman, masa)
-functions/       pelayan pembayaran Stripe (Firebase Cloud Functions)
-vendor/          three.min.js (lesen MIT)
+supabase/        pangkalan data (migrations/) & pelayan pembayaran Stripe (functions/)
+vendor/          three.min.js & supabase.js (lesen MIT)
 tools/           pengesah peta & ujian automatik (Node + Playwright)
 ```
 

@@ -334,7 +334,7 @@ MAPS.rumahtinggal2 = {
   doors: { 1: { to: 'rumahtinggal1', at: '1' }, 3: { to: 'rumahtinggal3', at: '1' } },
   enc: { cave: [['Toyol', 19, 23, 60], ['Pelesit', 22, 24, 8], ['Kelawar', 20, 23, 32]], crate: .1 },
   o: {
-    D: { s: 'johan', d: 'up', show: () => !flag('rival5') },
+    D: { s: 'johan', d: 'up', show: () => !flag('rival5'), t: '{R}: Hmm? Apa pandang-pandang?' },
     V: {
       if: () => !flag('rival5'), trig: async () => {
         const r = obj('D');
@@ -561,7 +561,7 @@ MAPS.kapal = {
     I: trainer('nelayan', 'down', 'Kelasi', 'Jamil', [['Ketam', 19], ['Oborobor', 19]], 'Ahoy! Kelasi di kapal ni semua jurulatih!', 'Kapal karam!', 'Kapten mabuk laut lagi, kesian dia.'),
     J: trainer('gadis', 'right', 'Pelancong', 'Melati', [['Comel', 20], ['Pipit', 20]], 'Pelayaran ini sangat mewah! Jom bertarung sementara menunggu!', 'Tak seronok kalah...', 'Selat ini sangat cantik waktu senja.'),
     N: trainer('pakcik', 'left', 'Usahawan', 'Kassim', [['Musangapi', 22], ['Comel', 21]], 'Aku orang kaya. Monsta aku pun mahal!', 'Duit tak boleh beli kemenangan...', 'Pelaburan terbaik ialah melatih Monsta!'),
-    D: { s: 'johan', d: 'down', show: () => !flag('rival4') },
+    D: { s: 'johan', d: 'down', show: () => !flag('rival4'), t: '{R}: Hmph. Aku sibuk ni.' },
     V: {
       if: () => !flag('rival4'), trig: async () => {
         const r = obj('D');
@@ -842,7 +842,7 @@ MAPS.menara3 = {
   ],
   doors: { 1: { to: 'menara2', at: '2' }, 2: { to: 'menara4', at: '1' } },
   o: {
-    D: { s: 'johan', d: 'up', show: () => !flag('rival6') },
+    D: { s: 'johan', d: 'up', show: () => !flag('rival6'), t: '{R}: Jangan kacau, aku tengah berfikir.' },
     V: {
       if: () => !flag('rival6'), trig: async () => {
         const r = obj('D');
@@ -1106,7 +1106,7 @@ MAPS.bukitmertajam = {
     y: sign('BATU BERSURAT CHEROK TOK KUN\nBatu bersurat purba di lereng Bukit Mertajam.'),
     N: npc('atuk', 'down', 'Di puncak Cherok Tok Kun ada DEWAN LIGA MONSTA. Hanya juara sejati sampai ke sana!', { move: 'wander' }),
     Z: npc('askar', 'down', () => `PENGAWAL: Hanya jurulatih dengan LAPAN lencana boleh memasuki LALUAN KEMENANGAN. Kamu ada ${badges()} lencana.`, { u: '=', show: () => badges() < 8 }),
-    O: { s: 'johan', d: 'right', show: () => badges() >= 8 && !flag('rival7') },
+    O: { s: 'johan', d: 'right', show: () => badges() >= 8 && !flag('rival7'), t: '{R}: Kamu pun dah ada lapan lencana? Hmph!' },
     V: {
       u: '=', if: () => badges() >= 8 && !flag('rival7'), trig: async () => {
         const r = obj('O');

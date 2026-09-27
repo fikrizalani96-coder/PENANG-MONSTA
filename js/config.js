@@ -2,19 +2,11 @@
 // ===== Tetapan pelancaran =====
 // Isikan nilai sebenar sebelum melancarkan laman web. Lihat LAUNCH.md untuk langkah penuh.
 const CONFIG = {
-  // Firebase (Log masuk Google + simpanan awan + pembelian). Salin dari Firebase Console → Project settings → Web app.
-  firebase: null,
-  // Contoh:
-  // firebase: {
-  //   apiKey: 'AIza...',
-  //   authDomain: 'monsta-seberang-perai.firebaseapp.com',
-  //   projectId: 'monsta-seberang-perai',
-  //   storageBucket: 'monsta-seberang-perai.appspot.com',
-  //   messagingSenderId: '1234567890',
-  //   appId: '1:1234567890:web:abcdef',
-  // },
-  firebaseVersion: '10.12.2',
-  functionsRegion: 'asia-southeast1',
+  // Supabase (Log masuk Google + simpanan awan + pembelian). Kunci "publishable" selamat didedahkan kepada pelayar.
+  supabase: {
+    url: 'https://aobpmnuvccntrjfsvxgf.supabase.co',
+    key: 'sb_publishable_1mzJEEGfy7Wb2oPaosAH_A_h2rQvWv8',
+  },
 
   // Google AdSense (H5 Games Ads / Ad Placement API). Contoh: 'ca-pub-1234567890123456'
   adsenseClient: null,
