@@ -320,6 +320,7 @@ const Menus = {
           if (g < 3) {
             const q = ['tinggi', 'rendah', '2d'][g];
             const reload = (q === '2d') === R3.ok;
+            try { localStorage.setItem('msp_grafik_pilih', '1'); } catch (e) { }
             R3.setQuality(q);
             await UI.say('Grafik ditetapkan: ' + ['3D TINGGI', '3D RENDAH', '2D KLASIK'][g] + '.' + (reload ? ' SIMPAN permainan dan muat semula halaman untuk menukar mod grafik.' : ''));
           }

@@ -166,5 +166,5 @@ function boot() {
 }
 window.addEventListener('error', e => { console.error('Ralat:', e.message); });
 if (document.fonts && document.fonts.load) {
-  Promise.race([Promise.all([document.fonts.load('600 32px "Baloo 2"'), document.fonts.load('16px "Press Start 2P"')]), new Promise(r => setTimeout(r, 1800))]).then(boot, boot);
+  Promise.race([Promise.all([document.fonts.load('600 32px "Baloo 2"'), document.fonts.load('16px "Press Start 2P"'), document.fonts.load('500 32px "Pixelify Sans"')]), new Promise(r => setTimeout(r, 1800))]).then(boot, boot);
 } else boot();

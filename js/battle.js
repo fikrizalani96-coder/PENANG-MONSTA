@@ -43,8 +43,8 @@ class BattleScene {
   }
   cardPos() {
     const R = dlgRect();
-    if (PORTRAIT) return { foe: [22 + INSET.l, 26 + (IS_TOUCH ? 60 : 0)], me: [SW - 22 - 400, R.y - 160] };
-    return { foe: [INSET.l + 30, 30], me: [SW - INSET.r - 30 - 400, R.y - 164] };
+    if (PORTRAIT) return { foe: [22 + INSET.l, 26 + (IS_TOUCH ? 60 : 0)], me: [SW - 22 - 420, R.y - 172] };
+    return { foe: [INSET.l + 30, 30], me: [SW - INSET.r - 30 - 420, R.y - 176] };
   }
   drawUI() {
     const P = this.cardPos();
@@ -55,36 +55,33 @@ class BattleScene {
       for (let i = 0; i < S.party.length; i++) { const m = S.party[i]; ctx.drawImage(ballSprite(alive(m) ? '#e03838' : '#707070'), P.me[0] + 10 + i * 40, P.me[1] + 60, 34, 34); }
     }
     if (this.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${this.flash})`; ctx.fillRect(0, 0, SW, SH); }
-    if (!Game.scenes.some(s => s instanceof Dialog || s instanceof ActionMenu || s instanceof MoveMenu)) { const R = dlgRect(); panel(R.x, R.y, R.w, R.h); }
+    if (!Game.scenes.some(s => s instanceof Dialog || s instanceof ActionMenu || s instanceof MoveMenu)) { const R = dlgRect(); paper(R.x, R.y, R.w, R.h, '#ec7468'); }
   }
   drawCard(side, x, y, mine) {
-    const m = side.mon, w = 400, h = mine ? 138 : 104;
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 5;
-    const g = ctx.createLinearGradient(x, y, x + w, y + h);
-    g.addColorStop(0, 'rgba(24,36,70,.93)'); g.addColorStop(1, 'rgba(10,16,34,.93)');
-    ctx.fillStyle = g; rr(x, y, w, h, 16); ctx.fill(); ctx.restore();
-    const tc = TYPE_COLOR[SP[m.sp].types[0]];
-    ctx.fillStyle = tc; rr(x, y, 10, h, 5); ctx.fill();
-    ctx.strokeStyle = 'rgba(233,196,106,.7)'; ctx.lineWidth = 2; rr(x + 1, y + 1, w - 2, h - 2, 15); ctx.stroke();
+    const m = side.mon, w = 420, h = mine ? 150 : 112;
+    paper(x, y, w, h);
     const ghost = this.o.ghost && !mine && !S.bag['Teropong Roh'];
-    txt(ghost ? 'HANTU' : monName(m), x + 26, y + 12, { size: 34 });
-    txt('Tp ' + m.lv, x + w - 22, y + 14, { size: 30, align: 'right', color: THEME.accent });
-    if (!ghost) SP[m.sp].types.forEach((t, k) => { ctx.fillStyle = TYPE_COLOR[t]; rr(x + 26 + k * 92, y + 52, 84, 20, 10); ctx.fill(); txt(t.toUpperCase(), x + 68 + k * 92, y + 50, { size: 18, align: 'center', shadow: false }); });
-    if (m.status) { ctx.fillStyle = STATUS_COL[m.status]; rr(x + 210, y + 52, 60, 20, 10); ctx.fill(); txt(STATUS_NAME[m.status], x + 240, y + 50, { size: 18, align: 'center', shadow: false }); }
+    const tc = TYPE_COLOR[SP[m.sp].types[0]];
+    ctx.fillStyle = tc; rr(x + 5, y + 18, 7, h - 36, 4); ctx.fill();
+    txt(ghost ? 'HANTU' : monName(m), x + 30, y + 16, { pix: 'dlg', size: 36, color: INK, shadow: false });
+    txt('Tp' + m.lv, x + w - 26, y + 18, { pix: 'dlg', size: 32, align: 'right', color: INK, shadow: false });
+    let cx = x + 30;
+    if (m.status) { ctx.fillStyle = STATUS_COL[m.status]; rr(cx, y + 58, 74, 22, 11); ctx.fill(); txt(STATUS_NAME[m.status], cx + 37, y + 57, { size: 18, align: 'center', shadow: false }); cx += 84; }
+    if (!ghost) SP[m.sp].types.forEach((t, k) => { ctx.fillStyle = TYPE_COLOR[t]; rr(cx + k * 86, y + 58, 78, 22, 11); ctx.fill(); txt(t.toUpperCase(), cx + 39 + k * 86, y + 57, { size: 17, align: 'center', shadow: false }); });
     const hpi = mine ? 0 : 1, mh = maxHp(m), shown = clamp(this.hpShow[hpi], 0, mh), pct = shown / mh;
-    const bx = x + 26, by = y + 80, bw = w - 52;
-    ctx.fillStyle = '#060a16'; rr(bx - 2, by - 2, bw + 4, 18, 9); ctx.fill();
-    const hg = ctx.createLinearGradient(0, by, 0, by + 14);
-    const hc = pct > .5 ? ['#7af07a', '#2fa84a'] : pct > .2 ? ['#ffe07a', '#d8a020'] : ['#ff8a7a', '#c83030'];
-    hg.addColorStop(0, hc[0]); hg.addColorStop(1, hc[1]);
-    ctx.fillStyle = hg; rr(bx, by, Math.max(0, bw * pct), 14, 7); ctx.fill();
+    const bx = x + 96, by = y + 86, bw = w - 124;
+    txt('HP', x + 30, by - 6, { pix: 'dlg', size: 30, color: '#e3a324', shadow: false });
+    ctx.fillStyle = INK; rr(bx - 4, by - 4, bw + 8, 22, 8); ctx.fill();
+    ctx.fillStyle = '#e4e0d2'; rr(bx, by, bw, 14, 5); ctx.fill();
+    ctx.fillStyle = pct > .5 ? '#3fcf4c' : pct > .2 ? '#f0c030' : '#ec4a3c'; rr(bx, by, Math.max(0, bw * pct), 14, 5); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.35)'; rr(bx + 2, by + 2, Math.max(0, bw * pct - 4), 4, 2); ctx.fill();
     if (mine) {
-      txt(`${Math.ceil(shown)} / ${mh}`, x + w - 22, y + 98, { size: 26, align: 'right' });
+      txt(`${Math.ceil(shown)} / ${mh}`, x + w - 26, y + 108, { pix: 'dlg', size: 30, align: 'right', color: INK, shadow: false });
       const e0 = expFor(m.lv), e1 = expFor(m.lv + 1), ep = clamp((m.exp - e0) / (e1 - e0), 0, 1);
-      ctx.fillStyle = '#060a16'; rr(bx, y + 126, bw * .55, 6, 3); ctx.fill();
-      ctx.fillStyle = '#58b0ff'; rr(bx, y + 126, bw * .55 * ep, 6, 3); ctx.fill();
-      txt('EXP', bx, y + 100, { size: 20, color: '#88c0ff' });
+      txt('EXP', x + 30, y + 112, { pix: 'dlg', size: 24, color: '#3a9ae0', shadow: false });
+      const ex = x + 96, ew = w - 124 - 150;
+      ctx.fillStyle = INK; rr(ex - 3, y + 118, ew + 6, 14, 6); ctx.fill();
+      ctx.fillStyle = '#3aa4ec'; rr(ex, y + 121, ew * ep, 8, 4); ctx.fill();
     }
   }
   draw2d() {
@@ -657,8 +654,8 @@ class ActionMenu {
     const R = dlgRect();
     const split = PORTRAIT ? 0 : R.w * .42;
     if (!PORTRAIT) {
-      panel(R.x, R.y, split - 8, R.h);
-      wrapText(`Apa patut ${monName(this.bs.me.mon)} buat?`, split - 70).slice(0, 3).forEach((l, k) => txt(l, R.x + 30, R.y + 24 + k * 38));
+      paper(R.x, R.y, split - 8, R.h, '#ec7468');
+      wrapText(`Apa patut ${monName(this.bs.me.mon)} buat?`, split - 80, 33, 'dlg').slice(0, 3).forEach((l, k) => txt(l, R.x + 36, R.y + 28 + k * 36, { pix: 'dlg', size: 33, color: INK, shadow: false }));
     }
     const bx = R.x + split, bw = R.w - split;
     const opts = [['LAWAN', '#e0524a'], ['BEG', '#e0a83a'], ['MONSTA', '#3fae5a'], ['LARI', '#4a8fe0']];

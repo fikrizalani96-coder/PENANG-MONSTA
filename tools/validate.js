@@ -3,7 +3,7 @@ const fs = require('fs'), vm = require('vm'), path = require('path');
 const root = path.join(__dirname, '..');
 const ctx = {
   console, Math, JSON, Object, Array, Set, Map, String, Number, Promise, setTimeout,
-  UI: {}, Snd: { sfx() { }, music() { } }, Input: {}, Game: {},
+  UI: {}, Snd: { sfx() { }, music() { } }, Input: {}, Game: {}, window: {},
   clamp: (v, a, b) => v < a ? a : v > b ? b : v, rnd: n => Math.floor(Math.random() * n), chance: p => Math.random() < p,
   pick: a => a[0], DIRS: { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }, OPP: { up: 'down', down: 'up', left: 'right', right: 'left' },
 };

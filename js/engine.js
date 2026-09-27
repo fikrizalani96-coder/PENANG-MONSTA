@@ -9,6 +9,7 @@ const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
 const FONT = "'Baloo 2', 'Trebuchet MS', 'Segoe UI', sans-serif";
 const FONT_PIX = "'Press Start 2P', 'Courier New', monospace";
+const FONT_DLG = "'Pixelify Sans', 'Baloo 2', 'Trebuchet MS', sans-serif";
 const IS_TOUCH = matchMedia('(hover: none), (pointer: coarse)').matches || 'ontouchstart' in window;
 let PORTRAIT = false;
 
@@ -165,12 +166,12 @@ const THEME = {
   panelA: '#15213f', panelB: '#0b1328', edge: '#e9c46a', edge2: '#8a6a2a', text: '#f4f1e8', dim: '#9aa6c4',
   accent: '#e9c46a', red: '#e0524a', blue: '#4a8fe0', glass: 'rgba(12,20,42,.86)'
 };
-function setFont(size, pix) { ctx.font = `${pix ? '' : '600 '}${Math.round(size * (pix ? .55 : .86))}px ${pix ? FONT_PIX : FONT}`; }
+function setFont(size, pix) { ctx.font = pix === 'dlg' ? `500 ${Math.round(size * .9)}px ${FONT_DLG}` : `${pix ? '' : '600 '}${Math.round(size * (pix ? .55 : .86))}px ${pix ? FONT_PIX : FONT}`; }
 function txt(s, x, y, o = {}) {
   setFont(o.size || 32, o.pix);
   ctx.textAlign = o.align || 'left';
   ctx.textBaseline = 'top';
-  const yy = y + (o.pix ? 4 : -2);
+  const yy = y + (o.pix === 'dlg' ? 0 : o.pix ? 4 : -2);
   if (o.shadow !== false) { ctx.fillStyle = o.shadow || 'rgba(0,0,0,.45)'; ctx.fillText(s, x + 1.5, yy + 2); }
   ctx.fillStyle = o.color || THEME.text;
   ctx.fillText(s, x, yy);
@@ -193,13 +194,23 @@ function panel(x, y, w, h, alt) {
   ctx.strokeStyle = 'rgba(233,196,106,.25)'; ctx.lineWidth = 1.5; rr(x + 7, y + 7, w - 14, h - 14, 9); ctx.stroke();
   ctx.fillStyle = 'rgba(255,255,255,.06)'; rr(x + 4, y + 4, w - 8, Math.min(h * .4, 40), 10); ctx.fill();
 }
+// Panel krim klasik (dialog & pertarungan)
+function paper(x, y, w, h, inner) {
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,.28)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 5;
+  ctx.fillStyle = '#2b2f3a'; rr(x, y, w, h, 18); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = '#fbf8ee'; rr(x + 5, y + 5, w - 10, h - 10, 14); ctx.fill();
+  if (inner) { ctx.strokeStyle = inner; ctx.lineWidth = 4; rr(x + 12, y + 12, w - 24, h - 24, 10); ctx.stroke(); }
+}
+const INK = '#23272f';
 function cursor(x, y) {
   const bob = Math.sin(Game.t * 8) * 2;
   ctx.fillStyle = THEME.accent;
   ctx.beginPath(); ctx.moveTo(x + bob, y); ctx.lineTo(x + 13 + bob, y + 9); ctx.lineTo(x + bob, y + 18); ctx.closePath(); ctx.fill();
 }
-function wrapText(s, maxW, size = 32) {
-  setFont(size);
+function wrapText(s, maxW, size = 32, pix) {
+  setFont(size, pix);
   const out = [];
   for (const para of String(s).split('\n')) {
     let line = '';
@@ -242,7 +253,7 @@ class Dialog {
     this.pages = [];
     const R = dlgRect();
     for (const p of pages) {
-      const lines = wrapText(fmt(p), R.w - 70);
+      const lines = wrapText(fmt(p), R.w - 80, 33, 'dlg');
       for (let i = 0; i < lines.length; i += 3) this.pages.push(lines.slice(i, i + 3));
     }
     this.pi = 0; this.chars = 0; this.done = false;
@@ -275,16 +286,16 @@ class Dialog {
   }
   draw() {
     const R = dlgRect();
-    panel(R.x, R.y, R.w, R.h);
+    paper(R.x, R.y, R.w, R.h, '#ec7468');
     let n = Math.floor(this.chars);
     this.cur.forEach((line, i) => {
       const s = line.slice(0, Math.max(0, n)); n -= line.length;
-      txt(s, R.x + 32, R.y + 24 + i * 38);
+      txt(s, R.x + 36, R.y + 28 + i * 36, { pix: 'dlg', color: INK, shadow: false, size: 33 });
     });
-    if (!this.done && this.chars >= this.len && !this.opts.noWait && Math.floor(Game.t * 3) % 2 === 0) {
-      ctx.fillStyle = THEME.accent;
-      const bx = R.x + R.w - 40, by = R.y + R.h - 30;
-      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + 16, by); ctx.lineTo(bx + 8, by + 10); ctx.fill();
+    if (!this.done && this.chars >= this.len && !this.opts.noWait) {
+      ctx.fillStyle = '#ec5a4e';
+      const bx = R.x + R.w - 50, by = R.y + R.h - 36 + Math.sin(Game.t * 6) * 3;
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + 20, by); ctx.lineTo(bx + 10, by + 12); ctx.fill();
     }
   }
 }
@@ -294,7 +305,7 @@ class Choice {
     this.transparent = true; this.opts = options; this.res = res; this.o = o;
     this.i = o.start || 0; this.cancel = o.cancel === undefined ? options.length - 1 : o.cancel;
     this.vis = o.visible || 8; this.scroll = 0;
-    setFont(32);
+    setFont(32, 'dlg');
     const w = Math.max(...options.map(s => ctx.measureText(fmt(s)).width));
     this.w = Math.max(o.w || 0, 150, w + 80);
     const n = Math.min(this.vis, options.length);
@@ -315,16 +326,16 @@ class Choice {
     else if (Input.pressed.b && this.cancel !== null) { Snd.sfx('beep'); Game.pop(this); this.res(this.cancel); }
   }
   draw() {
-    panel(this.x, this.y, this.w, this.h, true);
+    paper(this.x, this.y, this.w, this.h);
     const end = Math.min(this.opts.length, this.scroll + this.vis);
     for (let k = this.scroll; k < end; k++) {
       const yy = this.y + 16 + (k - this.scroll) * 42;
-      if (k === this.i) { ctx.fillStyle = 'rgba(233,196,106,.16)'; rr(this.x + 10, yy - 2, this.w - 20, 40, 8); ctx.fill(); }
-      txt(fmt(this.opts[k]), this.x + 42, yy + 2, { color: k === this.i ? '#fff6d8' : THEME.text });
-      if (k === this.i) cursor(this.x + 20, yy + 9);
+      if (k === this.i) { ctx.fillStyle = 'rgba(236,116,104,.16)'; rr(this.x + 12, yy - 2, this.w - 24, 40, 8); ctx.fill(); }
+      txt(fmt(this.opts[k]), this.x + 44, yy + 4, { pix: 'dlg', size: 32, color: INK, shadow: false });
+      if (k === this.i) { const bob = Math.sin(Game.t * 8) * 2; ctx.fillStyle = '#ec5a4e'; ctx.beginPath(); ctx.moveTo(this.x + 20 + bob, yy + 9); ctx.lineTo(this.x + 33 + bob, yy + 18); ctx.lineTo(this.x + 20 + bob, yy + 27); ctx.closePath(); ctx.fill(); }
     }
-    if (this.scroll > 0) txt('▲', this.x + this.w - 30, this.y + 6, { size: 20 });
-    if (end < this.opts.length) txt('▼', this.x + this.w - 30, this.y + this.h - 26, { size: 20 });
+    if (this.scroll > 0) txt('▲', this.x + this.w - 30, this.y + 6, { size: 20, color: INK, shadow: false });
+    if (end < this.opts.length) txt('▼', this.x + this.w - 30, this.y + this.h - 26, { size: 20, color: INK, shadow: false });
   }
 }
 
