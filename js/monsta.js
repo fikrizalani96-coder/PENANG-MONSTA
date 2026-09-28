@@ -82,8 +82,10 @@ class EvoScene {
     }
     screenBG('#3a3a7a', '#fff8d0');
     const img = this.phase === 1 ? silhouette(name) : monstaSprite(name);
+    const s = 300, R = dlgRect(), y = Math.min(R.y - s - 20, (R.y - s) / 2 + 40);
+    if (this.phase === 1) { const g = ctx.createRadialGradient(SW / 2, y + s / 2, 10, SW / 2, y + s / 2, s); g.addColorStop(0, `rgba(255,255,230,${.5 + .3 * Math.sin(this.t * 10)})`); g.addColorStop(1, 'rgba(255,255,230,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, SW, SH); }
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, SW / 2 - 150, SH * .15, 300, 300);
+    ctx.drawImage(img, SW / 2 - s / 2, y, s, s);
     ctx.imageSmoothingEnabled = true;
   }
 }

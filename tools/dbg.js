@@ -8,7 +8,7 @@ const path = require('path');
   const errors = [];
   page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning' || m.type() === 'log') errors.push(m.type() + ': ' + m.text()); });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message + ' ' + (e.stack || '').split('\n').slice(0, 3).join(' | ')));
-  await page.goto('file://' + path.join(__dirname, '..', 'index.html'));
+  await page.goto('file://' + path.join(__dirname, '..', 'index.html') + (process.env.Q || ''));
   await page.waitForTimeout(1500);
   const r = await page.evaluate(code => { try { return JSON.stringify(eval(code)); } catch (e) { return 'ERR ' + e.message + e.stack; } }, code);
   await page.waitForTimeout(+waitMs);

@@ -1,110 +1,150 @@
 'use strict';
 // ===== Skrin tajuk, permainan baru, tamat =====
-// ---------- Logo tajuk: MONSTA emas timbul, reben SEBERANG PERAI, cogan JEJAK SEJARAH ----------
-const Logo = {
-  W: 980, H: 230, BASE: 180, SIZE: 176,
-  fill: null,
-  // lapisan emas + kilauan bergerak dilukis pada kanvas luar skrin
-  gold(t) {
-    if (!this.fill) { this.fill = mkCanvas(this.W, this.H); this.fill[1].imageSmoothingEnabled = true; }
-    const [c, g] = this.fill, W = this.W, H = this.H;
-    g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, W, H);
-    g.font = `800 ${this.SIZE}px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-    const gr = g.createLinearGradient(0, this.BASE - this.SIZE * .72, 0, this.BASE);
-    gr.addColorStop(0, '#fffbe6'); gr.addColorStop(.38, '#ffd966'); gr.addColorStop(.62, '#f0a22a'); gr.addColorStop(1, '#b8601a');
-    g.fillStyle = gr; g.fillText('MONSTA', W / 2, this.BASE);
-    g.globalCompositeOperation = 'source-atop';
-    g.fillStyle = 'rgba(255,255,255,.28)'; g.fillRect(0, 0, W, this.BASE - this.SIZE * .42);
-    const sx = ((t * .42) % 1.8 - .4) * W;
-    const sh = g.createLinearGradient(sx - 90, 0, sx + 90, 0);
-    sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(.5, 'rgba(255,255,255,.85)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
-    g.save(); g.transform(1, 0, -.35, 1, 0, 0); g.fillStyle = sh; g.fillRect(sx - 90, 0, 180 + H, H); g.restore();
-    return c;
+// ---------- Skrin tajuk: pemandangan piksel senja di pantai Seberang Perai ----------
+const TitleArt = {
+  cv: null, g: null,
+  px(g, x, y, w, h, c) { g.fillStyle = c; g.fillRect(x | 0, y | 0, w | 0, h | 0); },
+  cloud(g, x, y, w, c) {
+    const h = Math.max(3, w / 5 | 0);
+    this.px(g, x + 2, y, w - 4, h, c); this.px(g, x, y + 2, w, h - 2, c);
+    this.px(g, x + w * .2, y - 3, w * .35, 4, c); this.px(g, x + w * .45, y - 5, w * .3, 6, c);
   },
-  // lukis logo berpusat pada (cx, top) dengan skala k
-  draw(cx, top, k, t, alpha = 1) {
-    const S0 = this.SIZE, B = this.BASE;
-    ctx.save(); ctx.globalAlpha = alpha; ctx.translate(cx, top); ctx.scale(k, k);
-    ctx.font = `800 ${S0}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    ctx.lineJoin = 'round';
-    ctx.shadowColor = 'rgba(255,150,50,.55)'; ctx.shadowBlur = 50;
-    for (let i = 12; i >= 1; i--) { ctx.fillStyle = i > 8 ? '#261006' : '#6e3812'; ctx.fillText('MONSTA', 0, B + i * 1.3); if (i === 12) ctx.shadowBlur = 0; }
-    ctx.lineWidth = 18; ctx.strokeStyle = '#261006'; ctx.strokeText('MONSTA', 0, B);
-    ctx.lineWidth = 5; ctx.strokeStyle = '#ffe9a8'; ctx.strokeText('MONSTA', 0, B);
-    ctx.drawImage(this.gold(t), -this.W / 2, 0);
-    // kilauan bintang pada huruf
-    const gl = Math.floor(t * .9), ph = (t * .9) % 1;
-    if (ph < .5) {
-      const gx = (hash(gl, 1) - .5) * 600, gy = B - 40 - hash(gl, 2) * 90, r = 22 * Math.sin(ph / .5 * Math.PI);
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.moveTo(gx, gy - r); ctx.quadraticCurveTo(gx, gy, gx + r, gy); ctx.quadraticCurveTo(gx, gy, gx, gy + r); ctx.quadraticCurveTo(gx, gy, gx - r, gy); ctx.quadraticCurveTo(gx, gy, gx, gy - r); ctx.fill();
+  ridge(g, W, base, amp, seed, c, peakX, peakH) {
+    g.fillStyle = c;
+    for (let x = 0; x < W; x++) {
+      let h = amp * (.55 + .25 * Math.sin(x * .045 + seed) + .15 * Math.sin(x * .13 + seed * 3) + .05 * Math.sin(x * .41 + seed));
+      if (peakX !== undefined) h += Math.max(0, peakH * (1 - Math.abs(x - peakX) / (peakH * 2.4)));
+      g.fillRect(x, Math.round(base - h), 1, Math.round(h) + 1);
     }
-    // reben merah
-    const ry = B + 22, rw = 300, rh = 66;
-    ctx.fillStyle = '#7a0e16';
-    for (const s of [-1, 1]) {
-      ctx.beginPath(); ctx.moveTo(s * (rw - 30), ry + 14); ctx.lineTo(s * (rw + 56), ry + 14); ctx.lineTo(s * (rw + 30), ry + 14 + rh / 2); ctx.lineTo(s * (rw + 56), ry + 14 + rh); ctx.lineTo(s * (rw - 30), ry + 14 + rh); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#4a060c'; ctx.beginPath(); ctx.moveTo(s * rw, ry + rh); ctx.lineTo(s * (rw - 30), ry + 14 + rh); ctx.lineTo(s * rw, ry + 14 + rh); ctx.fill(); ctx.fillStyle = '#7a0e16';
-    }
-    const rg = ctx.createLinearGradient(0, ry, 0, ry + rh);
-    rg.addColorStop(0, '#f0424a'); rg.addColorStop(.5, '#d0202c'); rg.addColorStop(1, '#a01018');
-    ctx.fillStyle = rg; ctx.beginPath(); ctx.moveTo(-rw, ry); ctx.quadraticCurveTo(0, ry - 14, rw, ry); ctx.lineTo(rw, ry + rh); ctx.quadraticCurveTo(0, ry + rh - 14, -rw, ry + rh); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#ffd36a'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(-rw + 8, ry + 7); ctx.quadraticCurveTo(0, ry - 7, rw - 8, ry + 7); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-rw + 8, ry + rh - 7); ctx.quadraticCurveTo(0, ry + rh - 21, rw - 8, ry + rh - 7); ctx.stroke();
-    ctx.font = `800 44px ${FONT}`; ctx.lineWidth = 7; ctx.strokeStyle = '#5a0810';
-    ctx.strokeText('SEBERANG PERAI', 0, ry + 47); ctx.fillStyle = '#fff'; ctx.fillText('SEBERANG PERAI', 0, ry + 47);
-    // cogan kata
-    const ty = ry + rh + 44;
-    ctx.font = `800 28px ${FONT}`; ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(30,12,4,.85)';
-    ctx.strokeText('JEJAK  SEJARAH', 0, ty); ctx.fillStyle = '#ffd966'; ctx.fillText('JEJAK  SEJARAH', 0, ty);
-    ctx.fillStyle = '#ffd966';
-    for (const s of [-1, 1]) {
-      ctx.fillRect(s > 0 ? 130 : -230, ty - 12, 100, 3);
-      ctx.save(); ctx.translate(s * 245, ty - 10); ctx.rotate(Math.PI / 4); ctx.fillRect(-6, -6, 12, 12); ctx.restore();
-    }
-    ctx.restore();
   },
-  height: 410,
+  palm(g, x, y, h, t, c) {
+    for (let i = 0; i < h; i++) this.px(g, x + Math.round(Math.sin(i / h * 1.4) * 3), y - i, 2, 1, c);
+    const tx = x + Math.round(Math.sin(1.4) * 3), ty = y - h, sw = Math.sin(t * 1.5 + x) * 1.2;
+    for (const [dx, dy] of [[-1, 0], [1, 0], [-.7, .5], [.7, .5], [-.3, -.6], [.4, -.5]]) {
+      for (let k = 1; k <= 9; k++) this.px(g, tx + dx * k + sw * k / 9, ty + dy * k + (k * k) / 14, 2, 1, c);
+    }
+  },
+  house(g, x, y, c) { // rumah kampung bertiang
+    this.px(g, x, y - 9, 16, 6, c);
+    for (let i = 0; i < 6; i++) this.px(g, x - 2 + i, y - 10 - i, 20 - i * 2, 1, c);
+    this.px(g, x + 1, y - 3, 1, 4, c); this.px(g, x + 14, y - 3, 1, 4, c); this.px(g, x + 7, y - 3, 1, 4, c);
+    this.px(g, x + 6, y - 8, 3, 3, '#ffcf6a');
+  },
+  // heroBottom: kedudukan kaki wira dalam piksel logik UI
+  draw(t, heroBottom) {
+    const P = 4, W = Math.ceil(SW / P), H = Math.ceil(SH / P);
+    if (!this.cv || this.cv.width !== W || this.cv.height !== H) this.cv = null;
+    if (!this.cv) { const [c, g] = mkCanvas(W, H); this.cv = c; this.g = g; }
+    const g = this.g, por = PORTRAIT, px = this.px.bind(this);
+    const hz = Math.round(H * (por ? .42 : .47));
+    // langit berjalur dengan tepi berdither
+    const bands = ['#1b1440', '#2a1a52', '#43206a', '#6a2a78', '#9a3a7a', '#c84e72', '#e8705e', '#f89a56', '#ffc25e'];
+    const bh = hz / bands.length;
+    bands.forEach((c, i) => px(g, 0, Math.floor(i * bh), W, Math.ceil(bh) + 1, c));
+    for (let i = 1; i < bands.length; i++) { const y = Math.floor(i * bh); g.fillStyle = bands[i]; for (let x = i % 2; x < W; x += 2) g.fillRect(x, y - 1, 1, 1); g.fillStyle = bands[i - 1]; for (let x = (i + 1) % 2; x < W; x += 3) g.fillRect(x, y, 1, 1); }
+    for (let i = 0; i < 46; i++) if (Math.sin(t * 2 + i * 1.7) > -.3) px(g, hash(i, 1) * W, hash(i, 2) * hz * .45, 1, 1, i % 4 ? '#ffe8f8' : '#fff');
+    // matahari berjalur retro
+    const sr = Math.round(Math.min(H * (por ? .1 : .17), W * .16)), sx = Math.round(W * (por ? .68 : .66)), sy = hz - Math.round(sr * .3);
+    g.fillStyle = 'rgba(255,190,110,.18)'; g.beginPath(); g.arc(sx, sy, sr * 1.7, 0, 7); g.fill();
+    for (let y = -sr; y <= sr; y++) {
+      const yy = sy + y; if (yy >= hz) break;
+      const k = (y + sr) / (2 * sr);
+      if (k > .5 && ((y + Math.floor(t * 5)) % 6 + 6) % 6 < 1 + (k - .5) * 5) continue;
+      const half = Math.floor(Math.sqrt(sr * sr - y * y));
+      px(g, sx - half, yy, half * 2 + 1, 1, k < .35 ? '#fff4b8' : k < .65 ? '#ffd65c' : '#ff9a48');
+    }
+    for (let i = 0; i < 6; i++) { const cw = 20 + hash(i, 3) * 26 | 0; const x = (hash(i, 4) * (W + 80) + t * (1.5 + i * .6)) % (W + cw * 2) - cw; this.cloud(g, x, 6 + hash(i, 5) * hz * .55, cw, i % 2 ? '#f09ab0' : '#ffc4b0'); }
+    // bukit jauh dan Bukit Mertajam
+    this.ridge(g, W, hz, H * .07, 1.3, '#7a3e7e');
+    this.ridge(g, W, hz, H * .045, 4.1, '#58306a', W * .24, H * .12);
+    // laut dengan pantulan matahari
+    const seaH = Math.round(H * (por ? .06 : .09));
+    px(g, 0, hz, W, seaH, '#3c2a70');
+    for (let y = hz + 1; y < hz + seaH; y += 2) {
+      px(g, 0, y, W, 1, '#4a347e');
+      const f = 1 - (y - hz) / seaH, n = 3 + (y % 3);
+      for (let i = 0; i < n; i++) { const len = 2 + hash(y, i, Math.floor(t * 3)) * 8 * f; px(g, sx - sr * .9 * f + hash(y, i + 5, Math.floor(t * 3)) * sr * 1.8 * f, y, len, 1, i % 2 ? '#ffb060' : '#ffe08a'); }
+    }
+    for (let i = 0; i < 2; i++) { const bx = (hash(i, 6) * W + t * (2 + i)) % (W + 30) - 15, by = hz + 3 + i * 4; px(g, bx, by, 12, 2, '#1c1030'); px(g, bx + 2, by + 2, 8, 1, '#1c1030'); for (let k = 0; k < 7; k++) px(g, bx + 5, by - k, 1 + (7 - k) * .6, 1, '#2a1838'); }
+    // pantai: siluet kampung & pokok kelapa
+    const shore = hz + seaH;
+    px(g, 0, shore, W, 3, '#2a1838');
+    this.house(g, W * .08, shore + 1, '#2a1838'); this.house(g, W * .2, shore + 1, '#2a1838'); this.house(g, W * .86, shore + 1, '#2a1838');
+    for (const [fx, fh] of [[.03, 20], [.15, 24], [.3, 18], [.78, 22], [.94, 26]]) this.palm(g, Math.round(W * fx), shore + 2, fh, t, '#1f1030');
+    // sawah padi berlapis
+    let y = shore + 3, row = 0, rh = 2;
+    while (y < H) { px(g, 0, y, W, rh, row % 2 ? '#5f9a32' : '#72ac3c'); if (row % 2) for (let x = (row * 7) % 5; x < W; x += 5) px(g, x, y, 1, 1, '#d8cc5c'); y += rh; rh = Math.min(10, rh + 1); row++; }
+    // bukit kecil tempat wira berdiri
+    const hb = Math.round(heroBottom / P), kx = W / 2, kw = por ? W * .62 : W * .42;
+    g.fillStyle = '#3f7a2a'; g.beginPath(); g.ellipse(kx, hb + 3, kw / 2 + 2, 10, 0, 0, 7); g.fill();
+    g.fillStyle = '#5aa33a'; g.beginPath(); g.ellipse(kx, hb + 1, kw / 2, 8, 0, 0, 7); g.fill();
+    g.fillStyle = '#74bc48'; g.beginPath(); g.ellipse(kx - 4, hb - 1, kw / 2.6, 4, 0, 0, 7); g.fill();
+    for (let i = 0; i < 14; i++) px(g, kx - kw / 2 + 6 + hash(i, 7) * (kw - 12), hb - 2 + hash(i, 8) * 6, 1, 1, ['#fff', '#ffe060', '#ff8aa8'][i % 3]);
+    // Jentayu terbang merentasi langit
+    const jp = (t * 16) % (W + 140) - 70, jy = hz * (por ? .78 : .42) + Math.sin(t * 2.2) * 3;
+    g.imageSmoothingEnabled = false; g.drawImage(monstaSprite('Jentayu'), W - jp, jy, 40, 40);
+    // tiga Monsta pemula
+    const gap = por ? 54 : 70;
+    ['Anakpadi', 'Percik', 'Penyucil'].forEach((n, k) => {
+      const hop = Math.max(0, Math.sin(t * 3 + k * 2.1) - .75) * 12;
+      g.drawImage(monstaSprite(n), Math.round(kx - 32 + (k - 1) * gap), Math.round(hb - 62 - hop), 64, 64);
+    });
+    // kunang-kunang
+    for (let i = 0; i < 16; i++) { const fx = (hash(i, 9) * W + Math.sin(t + i) * 6) % W, fy = hb - 10 - ((t * 6 + hash(i, 10) * 80) % 80); if (Math.sin(t * 4 + i) > 0) px(g, fx, fy, 1, 1, '#fff2a0'); }
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(this.cv, 0, 0, W * P, H * P);
+    ctx.imageSmoothingEnabled = true;
+  }
 };
-function titleButton(b, sel, t, primary) {
-  const { x, y, w, h } = b;
-  ctx.save();
-  if (sel) { ctx.shadowColor = primary ? 'rgba(255,190,70,.9)' : 'rgba(255,210,120,.7)'; ctx.shadowBlur = 26 + Math.sin(t * 5) * 8; }
-  else { ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 14; }
-  ctx.shadowOffsetY = 4;
-  if (primary) {
-    const g = ctx.createLinearGradient(0, y, 0, y + h);
-    g.addColorStop(0, '#fff0b0'); g.addColorStop(.45, '#f6c850'); g.addColorStop(1, '#c47a18');
-    ctx.fillStyle = g;
-  } else ctx.fillStyle = sel ? 'rgba(40,28,70,.9)' : 'rgba(14,14,36,.72)';
-  rr(x, y, w, h, h / 2); ctx.fill();
+// Logo piksel: MONSTA emas, reben merah SEBERANG PERAI, cogan JEJAK SEJARAH
+function drawPixelLogo(cx, top, sz, t, alpha) {
+  ctx.save(); ctx.globalAlpha = alpha;
+  const F = "'Press Start 2P', 'Courier New', monospace";
+  ctx.font = `${sz}px ${F}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const o = Math.max(2, Math.round(sz / 14));
+  // bayang timbul
+  for (let i = 5; i >= 1; i--) { ctx.fillStyle = i > 3 ? '#1a0a04' : '#5a2a0c'; ctx.fillText('MONSTA', cx + i * o * .5, top + i * o); }
+  // garis luar piksel
+  ctx.fillStyle = '#1a0a04';
+  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]]) ctx.fillText('MONSTA', cx + dx * o, top + dy * o);
+  const gr = ctx.createLinearGradient(0, top, 0, top + sz);
+  gr.addColorStop(0, '#fff7c8'); gr.addColorStop(.3, '#fff7c8'); gr.addColorStop(.3, '#ffd84a'); gr.addColorStop(.62, '#ffd84a'); gr.addColorStop(.62, '#f5a322'); gr.addColorStop(.85, '#f5a322'); gr.addColorStop(.85, '#c8661a'); gr.addColorStop(1, '#c8661a');
+  ctx.fillStyle = gr; ctx.fillText('MONSTA', cx, top);
+  const tw = ctx.measureText('MONSTA').width;
+  // kilauan bintang piksel
+  const ph = (t * .8) % 1, gi = Math.floor(t * .8);
+  if (ph < .4) { const r = Math.round(o * 3 * Math.sin(ph / .4 * Math.PI)), gx = cx - tw / 2 + hash(gi, 1) * tw, gy = top + sz * (.15 + hash(gi, 2) * .5); ctx.fillStyle = '#fff'; ctx.fillRect(gx - r, gy - o / 2, r * 2, o); ctx.fillRect(gx - o / 2, gy - r, o, r * 2); }
+  // reben
+  const rs = Math.round(sz * .3), rw = Math.max(tw * .82, rs * 16), rh = rs * 2.2, ry = top + sz + o * 5;
+  ctx.fillStyle = '#6e0c14';
+  for (const s of [-1, 1]) { const ex = cx + s * (rw / 2 + rs * 1.2); ctx.fillRect(Math.min(ex, cx + s * rw / 2), ry + rs * .5, rs * 1.6, rh); ctx.fillStyle = '#4a0610'; ctx.fillRect(cx + s * rw / 2 - (s > 0 ? 0 : rs * .6), ry + rh, rs * .6, rs * .5); ctx.fillStyle = '#6e0c14'; }
+  ctx.fillStyle = '#1a0a04'; ctx.fillRect(cx - rw / 2 - o, ry - o, rw + 2 * o, rh + 2 * o);
+  ctx.fillStyle = '#d42a36'; ctx.fillRect(cx - rw / 2, ry, rw, rh);
+  ctx.fillStyle = '#f0525a'; ctx.fillRect(cx - rw / 2, ry, rw, o * 1.5);
+  ctx.fillStyle = '#a0141e'; ctx.fillRect(cx - rw / 2, ry + rh - o * 1.5, rw, o * 1.5);
+  ctx.font = `${rs}px ${F}`;
+  ctx.fillStyle = '#3a0408'; ctx.fillText('SEBERANG PERAI', cx + o * .6, ry + (rh - rs) / 2 + o * .6);
+  ctx.fillStyle = '#fff'; ctx.fillText('SEBERANG PERAI', cx, ry + (rh - rs) / 2);
+  // cogan kata
+  const ts = Math.round(sz * .2), ty = ry + rh + o * 5;
+  ctx.font = `${ts}px ${F}`;
+  ctx.fillStyle = '#1a0a04'; ctx.fillText('JEJAK SEJARAH', cx + o * .5, ty + o * .5);
+  ctx.fillStyle = '#ffd84a'; ctx.fillText('JEJAK SEJARAH', cx, ty);
+  const lw = ctx.measureText('JEJAK SEJARAH').width;
+  for (const s of [-1, 1]) { ctx.fillRect(cx + s * (lw / 2 + ts * .8) - (s < 0 ? ts * 3 : 0), ty + ts * .4, ts * 3, Math.max(2, o * .6)); ctx.fillRect(cx + s * (lw / 2 + ts * 4.4) - ts * .3, ty + ts * .2, ts * .6, ts * .6); }
   ctx.restore();
-  ctx.lineWidth = sel ? 4 : 2;
-  ctx.strokeStyle = primary ? '#5a2e08' : sel ? '#ffd966' : 'rgba(255,217,102,.45)';
-  rr(x + 1, y + 1, w - 2, h - 2, h / 2 - 1); ctx.stroke();
-  if (primary) { ctx.fillStyle = 'rgba(255,255,255,.35)'; rr(x + 10, y + 5, w - 20, h * .36, h * .18); ctx.fill(); }
-  const tc = primary ? '#3a1e04' : '#fff';
-  const hasSub = !!b.it.sub;
-  const fs = primary ? (PORTRAIT ? 40 : 36) : (PORTRAIT ? 30 : 26);
-  const cy = y + h / 2 - (hasSub ? 12 : 0);
-  ctx.save(); ctx.font = `800 ${fs}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = tc; ctx.fillText((b.it.icon ? b.it.icon + '  ' : '') + b.it.label, x + w / 2, cy + 2);
-  if (hasSub) { ctx.font = `600 ${primary ? 21 : 18}px ${FONT}`; ctx.fillStyle = primary ? '#6a3e0e' : '#c8c0e8'; ctx.fillText(b.it.sub, x + w / 2, cy + fs * .72); }
-  ctx.restore();
-  if (sel) { const bob = Math.sin(t * 8) * 4; ctx.fillStyle = primary ? '#3a1e04' : '#ffd966'; ctx.beginPath(); ctx.moveTo(x + 22 + bob, y + h / 2 - 11); ctx.lineTo(x + 38 + bob, y + h / 2); ctx.lineTo(x + 22 + bob, y + h / 2 + 11); ctx.fill(); }
+  return ty + ts - top; // tinggi keseluruhan
 }
 class TitleScene {
-  constructor() { this.t = 0; this.items = null; this.sel = 0; this.boxes = []; this.res = null; this.menuT = 0; this.flash = 0; this.landed = false; }
+  constructor() { this.t = 0; this.items = null; this.sel = 0; this.boxes = []; this.res = null; this.flash = 0; this.landed = false; }
   menu(items) { const keep = this.items && this.items[this.sel] && items.findIndex(i => i.id === this.items[this.sel].id); this.items = items; this.sel = keep > 0 ? keep : 0; return new Promise(r => { this.res = r; }); }
-  get intro() { return clamp((this.t - .3) / .8, 0, 1); }
+  get intro() { return clamp((this.t - .3) / .7, 0, 1); }
   update(dt) {
     this.t += dt;
-    if (this.items) this.menuT += dt;
-    if (!this.landed && this.intro >= 1) { this.landed = true; this.flash = .7; Snd.sfx('level'); }
-    this.flash = Math.max(0, this.flash - dt * 1.6);
+    if (!this.landed && this.intro >= 1) { this.landed = true; this.flash = .55; Snd.sfx('level'); }
+    this.flash = Math.max(0, this.flash - dt * 1.8);
     if (!this.items || !this.res) return;
-    if (this.t < 1 && (Input.pressed.a || Input.pressed.start || Input.ptr.tap)) { this.t = 1.2; return; } // langkau intro
+    if (this.t < 1 && (Input.pressed.a || Input.pressed.start || Input.ptr.tap)) { this.t = 1.1; return; } // langkau intro
     const n = this.items.length;
     if (Input.pressed.up || Input.pressed.left) { this.sel = (this.sel + n - 1) % n; Snd.sfx('move'); }
     if (Input.pressed.down || Input.pressed.right) { this.sel = (this.sel + 1) % n; Snd.sfx('move'); }
@@ -116,74 +156,73 @@ class TitleScene {
     }
     if (Input.pressed.a || Input.pressed.start) this.choose();
   }
-  choose() { if (!this.res || this.t < 1.1) return; Snd.sfx('beep'); const r = this.res; this.res = null; r(this.items[this.sel].id); }
+  choose() { if (!this.res || this.t < 1.05) return; Snd.sfx('beep'); const r = this.res; this.res = null; r(this.items[this.sel].id); }
   layout() {
-    const items = this.items || [], boxes = [];
-    const bottom = SH - INSET.b - (PORTRAIT ? 70 : 44);
+    const items = this.items || [{ label: '' }, { label: '' }, { label: '' }, { label: '' }]; // anggaran semasa menunggu
     const avail = SW - INSET.l - INSET.r, cx = INSET.l + avail / 2;
-    if (!items.length) return boxes;
-    const primary = items[0], rest = items.slice(1);
-    if (PORTRAIT) {
-      const w = Math.min(620, avail - 60), h2 = 74, gap = 14, h1 = primary.sub ? 110 : 96;
-      let y = bottom - rest.length * (h2 + gap) - h1 - 8;
-      boxes.push({ x: cx - w / 2, y, w, h: h1, it: primary }); y += h1 + gap + 8;
-      for (const it of rest) { boxes.push({ x: cx - w / 2 + 20, y, w: w - 40, h: h2, it }); y += h2 + gap; }
-    } else {
-      const h1 = primary.sub ? 92 : 80, h2 = 60, gap = 16;
-      const w2 = Math.min(300, (avail - 60 - gap * (rest.length - 1)) / rest.length), rowW = w2 * rest.length + gap * (rest.length - 1);
-      const y2 = bottom - h2, y1 = y2 - 18 - h1, w1 = Math.min(560, avail - 60);
-      boxes.push({ x: cx - w1 / 2, y: y1, w: w1, h: h1, it: primary });
-      rest.forEach((it, i) => boxes.push({ x: cx - rowW / 2 + i * (w2 + gap), y: y2, w: w2, h: h2, it }));
-    }
-    return boxes;
+    const w = Math.min(PORTRAIT ? 620 : 540, avail - 40), rowH = PORTRAIT ? 66 : 50, subH = PORTRAIT ? 30 : 24, pad = 20;
+    const h = pad * 2 + items.reduce((a, it) => a + rowH + (it.sub ? subH : 0), 0);
+    const x = cx - w / 2, y = SH - INSET.b - (PORTRAIT ? 64 : 40) - h;
+    let yy = y + pad;
+    const rows = items.map(it => { const rh = rowH + (it.sub ? subH : 0); const b = { x: x + 10, y: yy, w: w - 20, h: rh, it }; yy += rh; return b; });
+    return { x, y, w, h, rows };
   }
   draw() {
-    const intro = this.intro, t = this.t;
-    if (!(R3.ok && R3.drawTitle(t, clamp(t / 2.6, 0, 1)))) {
-      screenBG('#3a2060', '#f89850');
-      ctx.imageSmoothingEnabled = false;
-      ['Anakpadi', 'Percik', 'Penyucil'].forEach((n, k) => ctx.drawImage(monstaSprite(n), SW / 2 - 330 + k * 220, SH * .42, 220, 220));
-      ctx.imageSmoothingEnabled = true;
-    }
-    // bayang atas & bawah supaya teks jelas
-    let g = ctx.createLinearGradient(0, 0, 0, SH * .38); g.addColorStop(0, 'rgba(10,6,30,.55)'); g.addColorStop(1, 'rgba(10,6,30,0)');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, SW, SH * .38);
-    g = ctx.createLinearGradient(0, SH * .6, 0, SH); g.addColorStop(0, 'rgba(10,6,30,0)'); g.addColorStop(1, 'rgba(10,6,30,.7)');
-    ctx.fillStyle = g; ctx.fillRect(0, SH * .6, SW, SH * .4);
+    const t = this.t, L = this.layout();
+    TitleArt.draw(t, L.y - (PORTRAIT ? 30 : 16));
     // logo
-    const avail = SW - INSET.l - INSET.r;
-    const k0 = PORTRAIT ? Math.min(.8, (avail - 40) / 760) : .62;
-    const top = PORTRAIT ? 70 + (IS_TOUCH ? 40 : 0) : 14;
-    if (intro > 0) {
-      const e = intro < 1 ? 1 + 2.2 * Math.pow(1 - intro, 3) - .15 * Math.sin(intro * Math.PI) : 1;
-      const float = this.landed ? Math.sin(t * 1.4) * 4 : 0;
-      Logo.draw(INSET.l + avail / 2, top + float, k0 * e, t, Math.min(1, intro * 1.6));
+    const avail = SW - INSET.l - INSET.r, cx = INSET.l + avail / 2;
+    const sz = PORTRAIT ? Math.min(92, (avail - 60) / 6.4) : 84;
+    const top0 = PORTRAIT ? 90 + (IS_TOUCH ? 30 : 0) : 26;
+    if (this.intro > 0) {
+      const e = this.intro, drop = e < 1 ? -(1 - e) * (1 - e) * 260 + Math.sin(e * Math.PI) * 18 : Math.sin(t * 1.6) * 3;
+      drawPixelLogo(cx, top0 + drop, sz, t, Math.min(1, e * 2));
     }
-    // menu
-    this.boxes = this.layout();
-    if (this.items && t > 1.1) {
-      const a = clamp((t - 1.1) / .5, 0, 1);
-      ctx.save(); ctx.globalAlpha = a; ctx.translate(0, (1 - a) * 30);
-      this.boxes.forEach((b, i) => titleButton(b, i === this.sel, t, i === 0));
+    // menu klasik
+    this.boxes = L.rows;
+    if (this.items && t > 1.05) {
+      const a = clamp((t - 1.05) / .35, 0, 1);
+      ctx.save(); ctx.globalAlpha = a;
+      paper(L.x, L.y, L.w, L.h, '#ec7468');
+      L.rows.forEach((b, i) => {
+        const sel = i === this.sel, fs = PORTRAIT ? 34 : 30;
+        if (sel) { ctx.fillStyle = 'rgba(236,116,104,.16)'; rr(b.x + 6, b.y + 2, b.w - 12, b.h - 4, 8); ctx.fill(); const bob = Math.sin(t * 8) * 2; ctx.fillStyle = '#ec5a4e'; ctx.beginPath(); ctx.moveTo(b.x + 18 + bob, b.y + 14); ctx.lineTo(b.x + 32 + bob, b.y + 24); ctx.lineTo(b.x + 18 + bob, b.y + 34); ctx.closePath(); ctx.fill(); }
+        txt(b.it.label, b.x + 46, b.y + (PORTRAIT ? 12 : 8), { pix: 'dlg', size: fs, color: INK, shadow: false });
+        if (b.it.sub) txt(b.it.sub, b.x + 46, b.y + (PORTRAIT ? 12 : 8) + fs + 2, { pix: 'dlg', size: fs * .66, color: '#7a6a58', shadow: false });
+      });
       ctx.restore();
     }
-    const foot = IS_TOUCH ? 'Sentuh pilihan untuk bermula' : '↑ ↓ pilih  ·  Z / Enter mula  ·  atau klik';
-    txt(foot, SW / 2, SH - INSET.b - (PORTRAIT ? 50 : 30), { size: 18, align: 'center', color: 'rgba(255,255,255,.7)' });
-    txt('© Monsta Seberang Perai · Versi 2.1', SW - INSET.r - 16, SH - INSET.b - (PORTRAIT ? 26 : 26), { size: 15, align: 'right', color: 'rgba(255,255,255,.45)', shadow: false });
+    const foot = IS_TOUCH ? 'Sentuh pilihan untuk bermula' : '↑ ↓ pilih  ·  Z / Enter  ·  atau klik';
+    txt(foot, cx, SH - INSET.b - (PORTRAIT ? 44 : 30), { size: 18, align: 'center', color: 'rgba(255,255,255,.8)' });
+    txt('© Monsta Seberang Perai · Versi 2.2', SW - INSET.r - 14, SH - INSET.b - 24, { size: 14, align: 'right', color: 'rgba(255,255,255,.55)', shadow: false });
     if (this.flash > 0) { ctx.fillStyle = `rgba(255,244,220,${this.flash})`; ctx.fillRect(0, 0, SW, SH); }
   }
 }
 class IntroScene {
   constructor() { this.show = null; this.a = 0; }
-  update(dt) { this.a = Math.min(1, this.a + dt * 2); }
+  update() { }
   draw() {
+    // animasi dikira semasa melukis: adegan ini hampir sentiasa di bawah dialog
+    this.a = Math.min(1, this.a + (Game.dt || .016) * 2.5);
     const human = this.show === 'prof' || this.show === 'player' || this.show === 'rival';
     const look = this.show === 'prof' ? 'prof' : this.show === 'rival' ? 'johan' : S.look;
     if (R3.ok && this.show && R3.drawShow(human ? look : this.show, { human, y: PORTRAIT ? -1.2 : 0 })) return;
-    screenBG('#2a2050', '#0a0818');
+    // pentas: cahaya lembut + pelantar
+    const R = dlgRect(), cx = SW / 2, base = Math.min(R.y - 40, SH * (PORTRAIT ? .5 : .66));
+    const gr = ctx.createLinearGradient(0, 0, 0, SH);
+    gr.addColorStop(0, '#2a3a6a'); gr.addColorStop(.55, '#5a4a8a'); gr.addColorStop(1, '#1a1430');
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, SW, SH);
+    const glow = ctx.createRadialGradient(cx, base - 140, 10, cx, base - 140, 360);
+    glow.addColorStop(0, 'rgba(255,236,190,.45)'); glow.addColorStop(1, 'rgba(255,236,190,0)');
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, SW, SH);
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(cx, base + 8, 200, 34, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#7aa8d8'; ctx.beginPath(); ctx.ellipse(cx, base, 190, 30, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#a8cff0'; ctx.beginPath(); ctx.ellipse(cx, base - 4, 160, 20, 0, 0, 7); ctx.fill();
+    if (!this.show) return;
+    const e = 1 - Math.pow(1 - this.a, 3);
     ctx.globalAlpha = this.a; ctx.imageSmoothingEnabled = false;
-    if (human) ctx.drawImage(personSprite(look, 'down', 0), SW / 2 - 110, SH * .2, 220, 220);
-    else if (this.show) ctx.drawImage(monstaSprite(this.show), SW / 2 - 130, SH * .15, 260, 260);
+    if (human) { const s = PORTRAIT ? 260 : 240; ctx.drawImage(personSprite(look, 'down', 0), cx - s / 2 + (1 - e) * 60, base - s + 12, s, s); }
+    else { const s = PORTRAIT ? 300 : 280, bob = Math.sin(Game.t * 2.4) * 4; ctx.drawImage(monstaSprite(this.show), cx - s / 2 + (1 - e) * 60, base - s + 18 + bob, s, s); }
     ctx.globalAlpha = 1; ctx.imageSmoothingEnabled = true;
   }
   set(s) { this.show = s; this.a = 0; }
@@ -275,7 +314,14 @@ async function hallOfFame() {
   const sc = {
     k: 0, draw() {
       const m = S.party[Math.floor(Game.t / 2.5) % S.party.length];
-      if (!(R3.ok && R3.drawShow(m.sp, { rot: Game.t * .4, y: PORTRAIT ? -1.2 : 0 }))) screenBG('#201830', '#000');
+      if (!(R3.ok && R3.drawShow(m.sp, { rot: Game.t * .4, y: PORTRAIT ? -1.2 : 0 }))) {
+        screenBG('#201830', '#000');
+        const s = PORTRAIT ? 320 : 300, R = dlgRect(), y = Math.min(R.y - s - 10, SH * .5 - s / 2 + 40);
+        const glow = ctx.createRadialGradient(SW / 2, y + s / 2, 10, SW / 2, y + s / 2, s);
+        glow.addColorStop(0, 'rgba(255,215,120,.35)'); glow.addColorStop(1, 'rgba(255,215,120,0)');
+        ctx.fillStyle = glow; ctx.fillRect(0, 0, SW, SH);
+        ctx.imageSmoothingEnabled = false; ctx.drawImage(monstaSprite(m.sp), SW / 2 - s / 2, y + Math.sin(Game.t * 2) * 4, s, s); ctx.imageSmoothingEnabled = true;
+      }
       txt('DEWAN KEMASYHURAN', SW / 2, 30 + (IS_TOUCH ? 50 : 0), { size: 54, align: 'center', color: THEME.accent });
       txt(monName(m) + '  ·  Tp ' + m.lv, SW / 2, 96 + (IS_TOUCH ? 50 : 0), { size: 36, align: 'center' });
     }

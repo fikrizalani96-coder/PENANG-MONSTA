@@ -217,7 +217,15 @@ class DexScene {
   move(d) { const v = this.vis; this.i = clamp(this.i + d, 0, this.max - 1); if (this.i < this.scroll) this.scroll = this.i; if (this.i >= this.scroll + v) this.scroll = this.i - v + 1; }
   draw() {
     const name = DEX[this.i + 1], seenIt = S.dex.seen[name];
-    if (R3.ok && seenIt) R3.drawShow(name, { white: !S.dex.caught[name], y: PORTRAIT ? -1.5 : 0 }); else screenBG('#3a1420', '#0a0610');
+    if (R3.ok && seenIt) R3.drawShow(name, { white: !S.dex.caught[name], y: PORTRAIT ? -1.5 : 0 });
+    else {
+      screenBG('#3a1420', '#0a0610');
+      if (seenIt) { // gambar Monsta 2D: siluet jika belum ditangkap
+        const s = PORTRAIT ? 300 : 280, x = PORTRAIT ? SW / 2 - s / 2 : SW - INSET.r - s - 80, y = PORTRAIT ? 170 + (IS_TOUCH ? 56 : 0) : SH * .2;
+        ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.beginPath(); ctx.ellipse(x + s / 2, y + s * .9, s * .42, s * .1, 0, 0, 7); ctx.fill();
+        ctx.imageSmoothingEnabled = false; ctx.drawImage(S.dex.caught[name] ? monstaSprite(name) : silhouette(name), x, y, s, s); ctx.imageSmoothingEnabled = true;
+      }
+    }
     ctx.fillStyle = 'rgba(5,8,18,.35)'; ctx.fillRect(0, 0, SW, SH);
     const top = 16 + (IS_TOUCH ? 56 : 0);
     txt('MONSTADEX', INSET.l + 30, top, { size: 44, color: '#ff8a7a' });
@@ -318,13 +326,13 @@ const Menus = {
         const o = await UI.choose(['KELAJUAN TEKS', 'GRAFIK', 'KOSTUM', 'BATAL'], { cancel: 3 });
         if (o === 0) { const sp = await UI.ask('Kelajuan teks?', ['LAMBAT', 'SEDERHANA', 'LAJU', 'BATAL'], { cancel: 3 }); if (sp < 3) S.textSpeed = [40, 70, 200][sp]; }
         if (o === 1) {
-          const g = await UI.ask('Kualiti grafik? (RENDAH atau 2D KLASIK lebih lancar pada telefon lama)', ['3D TINGGI', '3D RENDAH', '2D KLASIK', 'BATAL'], { cancel: 3 });
+          const g = await UI.ask('Mod grafik? 2D KLASIK ialah rupa asal permainan. 3D masih dalam percubaan.', ['2D KLASIK', '3D (PERCUBAAN)', '3D RENDAH (PERCUBAAN)', 'BATAL'], { cancel: 3 });
           if (g < 3) {
-            const q = ['tinggi', 'rendah', '2d'][g];
+            const q = ['2d', 'tinggi', 'rendah'][g];
             const reload = (q === '2d') === R3.ok;
             try { localStorage.setItem('msp_grafik_pilih', '1'); } catch (e) { }
             R3.setQuality(q);
-            await UI.say('Grafik ditetapkan: ' + ['3D TINGGI', '3D RENDAH', '2D KLASIK'][g] + '.' + (reload ? ' SIMPAN permainan dan muat semula halaman untuk menukar mod grafik.' : ''));
+            await UI.say('Grafik ditetapkan: ' + ['2D KLASIK', '3D', '3D RENDAH'][g] + '.' + (reload ? ' SIMPAN permainan dan muat semula halaman untuk menukar mod grafik.' : ''));
           }
         }
         if (o === 2) {

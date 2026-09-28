@@ -38,8 +38,93 @@ class BattleScene {
   }
   update() { }
   draw() {
-    if (R3.ok && R3.drawBattle(this)) { this.drawUI(); return; }
-    legacy(() => this.draw2d(), '#000');
+    if (!(R3.ok && R3.drawBattle(this))) this.drawHD();
+    this.drawUI();
+  }
+  // kedudukan pelantar (resolusi penuh) dan penukar koordinat lama 720x480 → skrin
+  anchors() {
+    const R = dlgRect(), P = this.cardPos();
+    const A = PORTRAIT
+      ? { fx: SW * .66, fy: (P.foe[1] + 120 + R.y) / 2 - 70, mx: SW * .3, my: R.y - 110, k: 5 }
+      : { fx: SW * .7, fy: SH * .44, mx: SW * .27, my: R.y - 26, k: 4.3 };
+    A.map = (x, y) => [A.mx + (x - 180) * (A.fx - A.mx) / 380, A.my + (y - 322) * (A.fy - A.my) / -134];
+    A.sx = (A.fx - A.mx) / 380;
+    return A;
+  }
+  drawHD() {
+    const A = this.anchors(), T = this.o.theme || 'rumput';
+    const [sky, sky2, g1, g2] = this.theme;
+    const hz = A.fy - (PORTRAIT ? 170 : 120); // kaki langit
+    let gr = ctx.createLinearGradient(0, 0, 0, hz);
+    gr.addColorStop(0, shade(sky, -.12)); gr.addColorStop(1, sky2);
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, SW, hz);
+    gr = ctx.createLinearGradient(0, hz, 0, SH);
+    gr.addColorStop(0, shade(g1, .15)); gr.addColorStop(1, shade(g2, -.1));
+    ctx.fillStyle = gr; ctx.fillRect(0, hz, SW, SH - hz);
+    // pemandangan latar mengikut tema (gaya piksel)
+    const P = 8, band = (y, h, c) => { ctx.fillStyle = c; ctx.fillRect(0, y, SW, h); };
+    ctx.save();
+    if (T === 'rumput' || T === 'malam') {
+      if (T === 'malam') for (let i = 0; i < 60; i++) { ctx.fillStyle = 'rgba(255,255,230,.8)'; ctx.fillRect(hash(i, 1) * SW, hash(i, 2) * hz * .9, 3, 3); }
+      else for (let i = 0; i < 5; i++) { const cx = hash(i, 9) * SW, cy = 40 + hash(i, 10) * hz * .35; ctx.fillStyle = 'rgba(255,255,255,.75)'; for (const [ox, oy, r] of [[0, 0, 26], [28, 6, 20], [-26, 8, 18], [8, -14, 18]]) { ctx.beginPath(); ctx.arc(cx + ox, cy + oy, r, 0, 7); ctx.fill(); } }
+      const tc = T === 'malam' ? '#26324c' : '#5aa84a', td = T === 'malam' ? '#18203a' : '#3a7a34';
+      for (let x = -40; x < SW + 60; x += 46) { const r = 30 + hash(x, 3) * 22; ctx.fillStyle = td; ctx.beginPath(); ctx.arc(x, hz - r * .55, r, 0, 7); ctx.fill(); }
+      for (let x = -20; x < SW + 60; x += 52) { const r = 24 + hash(x, 4) * 16; ctx.fillStyle = tc; ctx.beginPath(); ctx.arc(x, hz - r * .45, r, 0, 7); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.beginPath(); ctx.arc(x - r * .3, hz - r * .75, r * .45, 0, 7); ctx.fill(); }
+      band(hz, P, T === 'malam' ? '#303c58' : '#4e8c3c');
+    } else if (T === 'pantai' || T === 'air') {
+      band(hz - 40, 40, '#4a98e0'); for (let i = 0; i < 18; i++) { ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillRect(hash(i, 4) * SW, hz - 36 + hash(i, 5) * 30, 40, 4); }
+      band(hz, P, '#e8d49a');
+    } else if (T === 'gua') {
+      for (let x = 0; x < SW; x += 48) { const h = 30 + hash(x, 6) * 80; ctx.fillStyle = '#4a3a2c'; ctx.fillRect(x, 0, 40, h); ctx.fillRect(x + 12, h, 16, 16); }
+      band(hz, P, '#5a4836');
+    } else if (T === 'bandar') {
+      for (let x = -20; x < SW; x += 90) { const h = 90 + hash(x, 7) * 160; ctx.fillStyle = hash(x, 8) < .5 ? '#9aa6b4' : '#aeb8c4'; ctx.fillRect(x, hz - h, 80, h); ctx.fillStyle = '#d8e4f0'; for (let y = hz - h + 14; y < hz - 20; y += 26) for (let wx = x + 10; wx < x + 70; wx += 20) ctx.fillRect(wx, y, 10, 12); }
+      band(hz, P, '#7a828c');
+    } else if (T === 'dalam' || T === 'gim' || T === 'liga') {
+      const wc = T === 'dalam' ? '#efe6d4' : T === 'gim' ? '#e2dcf0' : '#f0d8b0';
+      ctx.fillStyle = wc; ctx.fillRect(0, 0, SW, hz);
+      for (let x = 0; x < SW; x += 160) { ctx.fillStyle = shade(wc, -.18); ctx.fillRect(x, 0, 18, hz); }
+      band(hz - 14, 14, shade(wc, -.3));
+    }
+    // garis perspektif lantai
+    ctx.globalAlpha = .12; ctx.fillStyle = '#000';
+    for (let y = hz + 20, s = 6; y < SH; y += s, s *= 1.35) ctx.fillRect(0, y, SW, 2);
+    ctx.restore();
+    // pelantar
+    const plat = (x, y, rx, ry) => {
+      ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(x, y + 10, rx + 6, ry + 4, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = shade(g2, -.15); ctx.beginPath(); ctx.ellipse(x, y + 5, rx, ry, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = g1; ctx.beginPath(); ctx.ellipse(x, y, rx - 8, ry - 6, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.beginPath(); ctx.ellipse(x - rx * .15, y - ry * .25, rx * .55, ry * .35, 0, 0, 7); ctx.fill();
+    };
+    const k = A.k;
+    plat(A.fx, A.fy, 64 * k * .72, 64 * k * .16);
+    plat(A.mx, A.my, 64 * k * .9, 64 * k * .2);
+    ctx.imageSmoothingEnabled = false;
+    // lawan
+    if (this.foeTr && this.tr) {
+      const img = personSprite(this.tr.look || 'budak', 'down', 0), s = 16 * k * 2;
+      ctx.drawImage(img, A.fx - s / 2 + this.foeTrX * A.sx, A.fy - s + 10, s, s);
+    }
+    if (this.foeVis && this.foe.mon && !(this.foeBlink > 0 && Math.floor(Game.t * 16) % 2)) {
+      const img = this.o.ghost && !S.bag['Teropong Roh'] ? silhouette(this.foe.mon.sp) : monstaSprite(this.foe.mon.sp);
+      const s = 64 * k * this.foeScale, bob = Math.sin(Game.t * 2.4) * 3;
+      ctx.drawImage(img, A.fx - s / 2 + this.foeX * A.sx, A.fy - s + 14 + this.foeY * A.sx + (64 * k - s) * .4 + bob, s, s);
+    }
+    // pemain (dari belakang)
+    if (this.meTr) {
+      const img = personSprite(S.look || 'pemain', 'up', 0), s = 16 * k * 2.3;
+      ctx.drawImage(img, A.mx - s / 2 + this.meTrX * A.sx, A.my - s + 20, s, s);
+    }
+    if (this.meVis && this.me.mon && !(this.meBlink > 0 && Math.floor(Game.t * 16) % 2)) {
+      const img = monstaSprite(this.me.mon.sp, true), s = 64 * k * 1.15, bob = Math.max(0, Math.sin(Game.t * 2.2)) * 3;
+      const R = dlgRect();
+      ctx.save(); ctx.beginPath(); ctx.rect(0, 0, SW, R.y + 6); ctx.clip();
+      ctx.drawImage(img, A.mx - s / 2 + this.meX * A.sx, A.my - s + 36 + this.meY * A.sx - bob, s, s);
+      ctx.restore();
+    }
+    if (this.ball) { const [bx, by] = A.map(this.ball.x, this.ball.y), bs = 36 * A.sx * 1.6; ctx.drawImage(ballSprite(this.ball.col), bx - bs / 2, by - bs / 2, bs, bs); }
+    ctx.imageSmoothingEnabled = true;
   }
   cardPos() {
     const R = dlgRect();
@@ -55,7 +140,7 @@ class BattleScene {
       for (let i = 0; i < S.party.length; i++) { const m = S.party[i]; ctx.drawImage(ballSprite(alive(m) ? '#e03838' : '#707070'), P.me[0] + 10 + i * 40, P.me[1] + 60, 34, 34); }
     }
     if (this.flash > 0) { ctx.fillStyle = `rgba(255,255,255,${this.flash})`; ctx.fillRect(0, 0, SW, SH); }
-    if (!Game.scenes.some(s => s instanceof Dialog || s instanceof ActionMenu || s instanceof MoveMenu)) { const R = dlgRect(); paper(R.x, R.y, R.w, R.h, '#ec7468'); }
+    if (!Game.scenes.some(s => s instanceof Dialog || s instanceof ActionMenu || s instanceof MoveMenu || s instanceof Choice)) { const R = dlgRect(); paper(R.x, R.y, R.w, R.h, '#ec7468'); }
   }
   drawCard(side, x, y, mine) {
     const m = side.mon, w = 420, h = mine ? 150 : 112;
@@ -190,7 +275,7 @@ class BattleScene {
     await this.say(`${this.tr.cls} ${this.tr.name} menghantar ${monName(m)}!`);
     seeMon(m.sp);
     Snd.sfx('ball');
-    this.foeVis = true; this.foeScale = .1;
+    this.foeVis = true; this.foeScale = .1; this.foeX = 0; this.foeY = 0;
     await this.anim(.3, t => this.foeScale = .1 + .9 * t);
   }
   async sendMe(i, first) {

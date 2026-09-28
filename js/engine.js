@@ -320,7 +320,8 @@ class Choice {
     const R = dlgRect();
     this.x = o.x !== undefined ? o.x : R.x + R.w - this.w;
     this.y = o.y !== undefined ? o.y : R.y - 8 - this.h;
-    if (this.y < 8 + INSET.t) this.y = 8 + INSET.t;
+    const topMin = 8 + INSET.t + (IS_TOUCH ? 60 : 0); // jangan di bawah butang ♪/MENU pada telefon
+    if (this.y < topMin) this.y = topMin;
   }
   update() {
     const n = this.opts.length;

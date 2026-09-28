@@ -20,6 +20,7 @@ const path = require('path');
     S.party = [makeMon('Nagabara', 38), makeMon('Tupaipetir', 30), makeMon('Kerbausakti', 40), makeMon('Kancil', 22), makeMon('Toyol', 20), makeMon('Belangkas', 33)];
     S.party[1].status = 'lumpuh'; S.party[3].hp = 5;
     S.badges = [0, 1, 2, 3]; S.money = 12345;
+    S.chapters = {}; for (const c of CHAPTERS) S.chapters[c[0]] = 1; // elak sepanduk bab menghalang menu
     ['Ubat', 'Ubat Super', 'Bola Tangkap', 'Bola Hebat', 'Air Tebu', 'Batu Api', 'Basikal', 'Seruling', 'CR01 Tebas'].forEach(n => giveItem(n, 3));
     for (const n of Object.keys(SP).slice(0, 60)) { S.dex.seen[n] = 1; if (Math.random() < .6) S.dex.caught[n] = 1; }
     Game.scenes = []; World.load('kepalabatas', 12, 13, 'down'); Game.scenes.push(World.scene); Game.fade = 0; Game.fadeTarget = 0;

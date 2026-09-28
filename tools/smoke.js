@@ -23,7 +23,9 @@ const path = require('path');
   await press('KeyZ'); await page.waitForTimeout(600);
   await until(() => World.map && Game.top() === World.scene && !World.busy);
   await shot('house'); console.log('1', JSON.stringify(await st()));
-  await hold('ArrowDown', 900); await shot('house2'); console.log('2', JSON.stringify(await st()));
+  await page.waitForFunction(() => Game.scenes.length === 1 && Game.top() === World.scene, null, { timeout: 15000 }); // tunggu sepanduk BAB 1
+  for (let i = 0; i < 6 && await page.evaluate(() => World.map.id !== 'penaga'); i++) { await hold('ArrowDown', 1200); await hold('ArrowRight', 300); await hold('ArrowDown', 900); await hold('ArrowLeft', 300); }
+  await shot('house2'); console.log('2', JSON.stringify(await st()));
   await until(() => World.map && World.map.id === 'penaga' && Game.top() === World.scene, 5);
   console.log('3', JSON.stringify(await st()));
   await shot('penaga');

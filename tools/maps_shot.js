@@ -3,7 +3,7 @@ const { chromium } = require('playwright');
 const path = require('path');
 (async () => {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-  const page = await browser.newPage({ viewport: { width: 760, height: 520 } });
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const errors = [];
   page.on('console', m => { if ((m.type() === 'error' || m.type() === 'warning') && !m.text().includes('ERR_CERT')) errors.push(m.text()); });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
@@ -21,8 +21,8 @@ const path = require('path');
       World.load(id, p.x, p.y, 'down', m.template ? { o: {} } : null);
       return { W: m.W, H: m.H, p };
     }, id);
-    await page.waitForTimeout(120);
-    await page.screenshot({ path: `${out}/${id}.png`, clip: { x: 0, y: 0, width: 740, height: 500 } });
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: `${out}/${id}.png` });
   }
   // peta penuh sebagai imej (canvas peta)
   const full = path.join(__dirname, '..', 'shots', 'full');
