@@ -326,13 +326,13 @@ const Menus = {
         const o = await UI.choose(['KELAJUAN TEKS', 'GRAFIK', 'KOSTUM', 'BATAL'], { cancel: 3 });
         if (o === 0) { const sp = await UI.ask('Kelajuan teks?', ['LAMBAT', 'SEDERHANA', 'LAJU', 'BATAL'], { cancel: 3 }); if (sp < 3) S.textSpeed = [40, 70, 200][sp]; }
         if (o === 1) {
-          const g = await UI.ask('Mod grafik? 2D KLASIK ialah rupa asal permainan. 3D masih dalam percubaan.', ['2D KLASIK', '3D (PERCUBAAN)', '3D RENDAH (PERCUBAAN)', 'BATAL'], { cancel: 3 });
+          const g = await UI.ask('Mod grafik? Pilih 3D RENDAH atau 2D KLASIK jika telefon kamu perlahan.', ['3D TINGGI', '3D RENDAH', '2D KLASIK', 'BATAL'], { cancel: 3 });
           if (g < 3) {
-            const q = ['2d', 'tinggi', 'rendah'][g];
+            const q = ['tinggi', 'rendah', '2d'][g];
             const reload = (q === '2d') === R3.ok;
             try { localStorage.setItem('msp_grafik_pilih', '1'); } catch (e) { }
             R3.setQuality(q);
-            await UI.say('Grafik ditetapkan: ' + ['2D KLASIK', '3D', '3D RENDAH'][g] + '.' + (reload ? ' SIMPAN permainan dan muat semula halaman untuk menukar mod grafik.' : ''));
+            await UI.say('Grafik ditetapkan: ' + ['3D TINGGI', '3D RENDAH', '2D KLASIK'][g] + '.' + (reload ? ' SIMPAN permainan dan muat semula halaman untuk menukar mod grafik.' : ''));
           }
         }
         if (o === 2) {

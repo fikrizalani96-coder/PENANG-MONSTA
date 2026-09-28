@@ -169,7 +169,7 @@ class TitleScene {
   }
   draw() {
     const t = this.t, L = this.layout();
-    TitleArt.draw(t, L.y - (PORTRAIT ? 30 : 16));
+    if (!(R3.ok && R3.drawTitle(t, clamp(t / 2.4, 0, 1)))) TitleArt.draw(t, L.y - (PORTRAIT ? 30 : 16));
     // logo
     const avail = SW - INSET.l - INSET.r, cx = INSET.l + avail / 2;
     const sz = PORTRAIT ? Math.min(92, (avail - 60) / 6.4) : 84;

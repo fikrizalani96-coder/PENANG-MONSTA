@@ -6,7 +6,7 @@ Permainan RPG pengembaraan Monsta berasaskan pelayar web, dengan jalan cerita da
 
 ## Versi 2.0: Jejak Sejarah
 
-- **Grafik 3D gaya diorama** (Three.js): tanah bertekstur yang dilukis, rumpun rumput, bunga dan pokok bulat, watak chibi, Monsta plush yang licin, cahaya matahari hangat dengan bayang lembut dan kesan tilt-shift. Arena pertarungan padang rumput dengan panel krim klasik. Pilihan grafik: 3D Tinggi / 3D Rendah / 2D Klasik (diturunkan secara automatik pada peranti perlahan; beralih ke 2D jika WebGL tiada).
+- **Grafik 3D gaya diorama** (Three.js): tanah bertekstur yang dilukis, rumpun rumput, bunga dan pokok bulat, watak chibi bermuka dengan rambut, tudung dan topi, 123 model Monsta 3D gaya kartun (bayang sel, garis luar, mata anime yang berkelip, sayap dan api beranimasi), rumah kampung bertiang dan bumbung genting, cahaya matahari hangat dengan bayang lembut. Arena pertarungan padang rumput dengan panel krim klasik. Pilihan grafik: 3D Tinggi / 3D Rendah / 2D Klasik (diturunkan secara automatik pada peranti perlahan; beralih ke 2D jika WebGL tiada).
 - **Mudah alih & web**: potret **9:16** di telefon (joystick + butang A/B) dan landskap **16:9** di komputer.
 - **Log masuk Google**: simpanan awan (Supabase) untuk main di mana-mana peranti.
 - **Cerita lebih panjang, 13 bab**, dengan **sejarah Malaysia**:
@@ -74,6 +74,7 @@ Penaga → Laluan 1 → Guar Perahu → Hutan Bakau → **Teluk Ayer Tawar** →
 index.html, style.css
 js/config.js     tetapan pelancaran (Supabase, AdSense)
 js/engine.js     kanvas responsif 9:16 / 16:9, input sentuh, dialog, bunyi & muzik
+js/models3d.js   model 3D kartun: Monsta (ikut bentuk badan & ciri) dan watak chibi
 js/render3d.js   pemapar 3D (Three.js): dunia, pertarungan, pameran Monsta
 js/gfx.js        jubin, bangunan, watak, penjana sprite Monsta
 js/data.js       jenis, jurus, 123 Monsta, barang, lencana
@@ -97,4 +98,5 @@ tools/           pengesah peta & ujian automatik (Node + Playwright)
 node tools/validate.js       # semak peta, pintu, sambungan, serpihan & harga premium
 node tools/playthrough.js    # main automatik dari awal hingga Juara & Lorong Masa (perlukan Playwright)
 node tools/shot3d.js era6 10 11 390 844   # tangkapan skrin 3D
+node tools/smoke3d.js                     # ujian asap 3D: semua model, peta & pertarungan
 ```

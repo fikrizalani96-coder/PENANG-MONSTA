@@ -121,8 +121,8 @@ const R3 = {
   init() {
     if (!window.THREE) return;
     THREE.ColorManagement.legacyMode = false;
-    // Lalai: 2D klasik. 3D hanya jika pemain memilihnya sendiri dalam PILIHAN → GRAFIK.
-    this.quality = '2d';
+    // Lalai: 3D. Pilihan pemain (PILIHAN → GRAFIK) dihormati, termasuk 2D klasik.
+    this.quality = 'tinggi';
     try { const q = localStorage.getItem('msp_grafik'); if (q && localStorage.getItem('msp_grafik_pilih') === '1') this.quality = q; } catch (e) { }
     if (this.quality === '2d' || /[?&]2d\b/.test(location.search)) return; // mod 2D klasik
     const c = document.getElementById('gl');
@@ -183,6 +183,26 @@ const R3 = {
     if (nearest) { t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipMapLinearFilter; }
     t.anisotropy = Math.min(8, this.r.capabilities.getMaxAnisotropy());
     return t;
+  },
+  // genting berbaris untuk bumbung
+  roofTex(color) {
+    this._roofT = this._roofT || {};
+    const key = color;
+    if (this._roofT[key]) return this._roofT[key];
+    const [c, g] = mkCanvas(64, 64); g.imageSmoothingEnabled = true;
+    const flat = color.startsWith('flat:'); if (flat) color = color.slice(5);
+    g.fillStyle = color; g.fillRect(0, 0, 64, 64);
+    if (flat) { g.fillStyle = shade(color, .12); g.fillRect(2, 2, 60, 60); g.fillStyle = shade(color, -.18); g.fillRect(0, 31, 64, 2); g.fillRect(31, 0, 2, 64); }
+    else for (let r = 0; r < 4; r++) {
+      const y = r * 16, off = r % 2 ? 8 : 0;
+      const gr = g.createLinearGradient(0, y, 0, y + 16); gr.addColorStop(0, shade(color, .12)); gr.addColorStop(.75, color); gr.addColorStop(1, shade(color, -.3));
+      g.fillStyle = gr; g.fillRect(0, y, 64, 16);
+      g.fillStyle = shade(color, -.34); g.fillRect(0, y + 14, 64, 2);
+      for (let i = -1; i < 5; i++) g.fillRect(i * 16 + off, y, 1.5, 15);
+    }
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = Math.min(8, this.r.capabilities.getMaxAnisotropy());
+    return (this._roofT[key] = t);
   },
   skyTex(top, mid, bot) {
     const [c, g] = mkCanvas(2, 256);
@@ -722,7 +742,7 @@ vec3 atl(float i, vec2 p){
       G: { wall: '#e2dcf0', roof: '#8a64bc', wh: 2.1 }, B: { wall: '#eef0f3', roof: '#a4aab4', wh: 2.3 + Math.max(0, h - 4) * .75 }, W: { wall: '#c2ccd4', roof: '#8a98a4', wh: 1.9 },
       R: { wall: '#ece2c8', roof: '#6a8a5a', wh: 2.1 }
     }[ch];
-    const d = h - .3, wh = spec.wh;
+    const d = h - .3, wh = spec.wh, lift = ch === 'H' ? .32 : 0;
     // tekstur hadapan (64px setiap petak)
     const TP = 64;
     const [fc, fg] = mkCanvas(w * TP, Math.ceil(wh * TP)); fg.imageSmoothingEnabled = true;
@@ -774,15 +794,28 @@ vec3 atl(float i, vec2 p){
     const side = new THREE.MeshLambertMaterial({ color: shade(spec.wall, -.05) });
     const mats = [side, side, bm(spec.roof), side, new THREE.MeshLambertMaterial({ map: ftex }), side];
     const body = new THREE.Mesh(new THREE.BoxGeometry(w - .06, wh, d), mats);
-    body.position.set(x + w / 2, wh / 2, y + d / 2); body.castShadow = body.receiveShadow = true;
+    body.position.set(x + w / 2, wh / 2 + lift, y + d / 2); body.castShadow = body.receiveShadow = true;
     g.add(body);
-    // tapak & anak tangga di hadapan pintu
-    const base = new THREE.Mesh(this.box, bm(shade(spec.wall, -.25))); base.scale.set(w + .04, .1, d + .04); base.position.set(x + w / 2, .05, y + d / 2); base.receiveShadow = true; g.add(base);
-    for (const i of doors) {
-      const st = new THREE.Mesh(this.box, bm('#c8c4bc')); st.scale.set(.86, .08, .3); st.position.set(x + i + .5, .04, y + d + .13); st.receiveShadow = st.castShadow = true; g.add(st);
+    const box = (c, sx, sy, sz, px, py, pz, shadow = true) => { const b = new THREE.Mesh(this.box, typeof c === 'string' ? bm(c) : c); b.scale.set(sx, sy, sz); b.position.set(px, py, pz); b.castShadow = shadow; b.receiveShadow = true; g.add(b); return b; };
+    if (lift) { // rumah kampung bertiang dengan tangga kayu
+      const wood = '#6a4424';
+      for (let i = 0; i <= Math.round(w); i += Math.max(1, Math.round(w / 3))) for (const zz of [y + .08, y + d - .08]) box(wood, .13, lift, .13, x + Math.min(w - .08, Math.max(.08, i)), lift / 2, zz);
+      box(shade(spec.wall, -.35), w + .06, .06, d + .06, x + w / 2, lift - .03, y + d / 2);
+      for (const i of doors) { box('#8a5a32', .76, .22, .16, x + i + .5, .11, y + d + .2); box('#8a5a32', .76, .11, .16, x + i + .5, .055, y + d + .34); for (const s of [-1, 1]) box(wood, .06, .5, .06, x + i + .5 + s * .38, .45, y + d + .12); box(wood, .06, .06, .3, x + i + .5 - .38, .7, y + d + .12); box(wood, .06, .06, .3, x + i + .5 + .38, .7, y + d + .12); }
+    } else {
+      box(shade(spec.wall, -.25), w + .04, .1, d + .04, x + w / 2, .05, y + d / 2, false);
+      for (const i of doors) box('#c8c4bc', .86, .08, .3, x + i + .5, .04, y + d + .13);
     }
+    if (ch === 'M') { // kanopi berjalur
+      const [ac, ag] = mkCanvas(64, 16); for (let i = 0; i < 8; i++) { ag.fillStyle = i % 2 ? '#ffffff' : '#3a70d0'; ag.fillRect(i * 8, 0, 8, 16); }
+      const at = this.canvasTex(ac); at.wrapS = THREE.RepeatWrapping; at.repeat.set(w, 1);
+      const aw = box(new THREE.MeshLambertMaterial({ map: at }), w - .1, .05, .5, x + w / 2, wh * .72, y + d + .2); aw.rotation.x = .38;
+    }
+    if (ch === 'G') for (const px of [x + .25, x + w - .25]) { const c = new THREE.Mesh(new THREE.CylinderGeometry(.13, .15, wh, 14), bm('#fbf8f0')); c.position.set(px, wh / 2, y + d + .12); c.castShadow = true; g.add(c); }
     if (ch === 'B' || ch === 'W') { // bumbung rata dengan tembok pengadang
-      const top = new THREE.Mesh(this.box, bm(spec.roof)); top.scale.set(w - .1, .06, d - .04); top.position.set(x + w / 2, wh + .03, y + d / 2); top.receiveShadow = true; g.add(top);
+      const rt = this.roofTex('flat:' + spec.roof).clone(); rt.needsUpdate = true; rt.repeat.set(w, d);
+      const top = new THREE.Mesh(this.box, [bm(spec.roof), bm(spec.roof), new THREE.MeshLambertMaterial({ map: rt }), bm(spec.roof), bm(spec.roof), bm(spec.roof)]); top.scale.set(w - .1, .06, d - .04); top.position.set(x + w / 2, wh + .03, y + d / 2); top.receiveShadow = true; g.add(top);
+      if (ch === 'B') { box('#dfe3e8', .7, .45, .6, x + w - 1.1, wh + .28, y + .8); box('#b8c0c8', .5, .08, .5, x + w - 1.1, wh + .54, y + .8); const tk = new THREE.Mesh(new THREE.CylinderGeometry(.32, .32, .6, 16), bm('#6aa0d8')); tk.position.set(x + 1.1, wh + .36, y + .9); tk.castShadow = true; g.add(tk); }
       const rim = bm(shade(spec.wall, .02));
       for (const [sx, sz, px, pz] of [[w - .02, .14, 0, -d / 2 + .07], [w - .02, .14, 0, d / 2 - .07], [.14, d, -w / 2 + .06, 0], [.14, d, w / 2 - .06, 0]]) {
         const r = new THREE.Mesh(this.box, rim); r.scale.set(sx, .22, sz); r.position.set(x + w / 2 + px, wh + .11, y + d / 2 + pz); r.castShadow = true; g.add(r);
@@ -790,17 +823,26 @@ vec3 atl(float i, vec2 p){
       const trim = new THREE.Mesh(this.box, bm('#9aa0aa')); trim.scale.set(w - .02, .06, .04); trim.position.set(x + w / 2, wh - .02, y + d + .005); g.add(trim);
       if (ch === 'W') for (let i = 0; i < Math.max(1, w / 3); i++) { const ac = new THREE.Mesh(this.box, bm('#c8ccd4')); ac.scale.set(.5, .35, .5); ac.position.set(x + .8 + i * 3, wh + .35, y + d / 2 - .4 + (i % 2) * .6); ac.castShadow = true; g.add(ac); }
     } else {
-      const rh = ch === 'H' ? .6 + d * .3 : .45 + d * .22;
-      const ov = .2, Lr = w + ov * 2, D = d + ov * 2;
-      const shape = new THREE.Shape(); shape.moveTo(-D / 2, 0); shape.lineTo(D / 2, 0); shape.lineTo(0, rh); shape.lineTo(-D / 2, 0);
-      const rg = new THREE.ExtrudeGeometry(shape, { depth: Lr, bevelEnabled: false });
-      rg.rotateY(Math.PI / 2); rg.translate(-Lr / 2, 0, 0);
-      const roof = new THREE.Mesh(rg, new THREE.MeshLambertMaterial({ color: spec.roof, flatShading: true }));
-      roof.position.set(x + w / 2, wh, y + d / 2); roof.castShadow = true; roof.receiveShadow = true;
-      g.add(roof);
-      const eave = new THREE.Mesh(this.box, bm(shade(spec.roof, -.3))); eave.scale.set(Lr, .06, .06); eave.position.set(x + w / 2, wh + .01, y + d / 2 + D / 2); g.add(eave);
-      if (ch === 'H') for (const px of [x + .15, x + w - .15]) { const p = new THREE.Mesh(this.box, bm('#6a4a2a')); p.scale.set(.12, .3, .12); p.position.set(px, .15, y + d + .02); g.add(p); }
+      const rh = ch === 'H' ? .55 + d * .3 : .42 + d * .2;
+      const ov = .24, Lr = w + ov * 2, half = d / 2 + ov, top = wh + lift;
+      const ang = Math.atan2(rh, half), sw = Math.hypot(half, rh) + .05;
+      const edge = bm(shade(spec.roof, -.38));
+      for (const s of [-1, 1]) {
+        const t = this.roofTex(spec.roof).clone(); t.needsUpdate = true; t.repeat.set(Lr * 1.3, sw * 1.8);
+        const slab = new THREE.Mesh(this.box, [edge, edge, new THREE.MeshLambertMaterial({ map: t }), edge, edge, edge]);
+        slab.scale.set(Lr, .08, sw); slab.rotation.x = s * ang;
+        slab.position.set(x + w / 2, top + rh / 2 + .02, y + d / 2 + s * half / 2);
+        slab.castShadow = slab.receiveShadow = true; g.add(slab);
+      }
+      box(shade(spec.roof, -.25), Lr + .04, .12, .16, x + w / 2, top + rh + .04, y + d / 2);
+      const gs = new THREE.Shape(); gs.moveTo(-d / 2, 0); gs.lineTo(d / 2, 0); gs.lineTo(0, rh * .97); gs.closePath();
+      const gm = new THREE.MeshLambertMaterial({ color: shade(spec.wall, ch === 'H' ? -.12 : -.04), side: THREE.DoubleSide });
+      for (const gx of [x + .03, x + w - .03]) {
+        const gb = new THREE.Mesh(new THREE.ShapeGeometry(gs), gm); gb.rotation.y = Math.PI / 2; gb.position.set(gx, top, y + d / 2); gb.castShadow = true; g.add(gb);
+        if (ch === 'H') { const v = new THREE.Mesh(new THREE.CircleGeometry(.12, 3), bm('#4a2e18')); v.rotation.y = gx > x + w / 2 ? Math.PI / 2 : -Math.PI / 2; v.rotation.z = Math.PI / 2; v.position.set(gx + (gx > x + w / 2 ? .005 : -.005), top + rh * .42, y + d / 2); g.add(v); }
+      }
     }
+    g.userData.top = spec.wh + lift + (ch === 'B' || ch === 'W' ? .3 : .6 + d * .3);
     return g;
   },
   cutBush(x, y) {
@@ -809,143 +851,20 @@ vec3 atl(float i, vec2 p){
     const mtx = new THREE.Matrix4().makeScale(0, 0, 0);
     for (const [k, i] of b) { const m = this.inst[k]; if (m) { m.setMatrixAt(i, mtx); m.instanceMatrix.needsUpdate = true; } }
   },
-  // ---------- Watak chibi ----------
-  human(lookName) {
-    const L = LOOKS[lookName] || LOOKS.budak;
-    const player = /^(pemain|kostum)/.test(lookName);
-    const g = new THREE.Group(); const body = new THREE.Group(); g.add(body);
-    const G = this.hgeo || (this.hgeo = {
-      head: new THREE.SphereGeometry(.27, 24, 18), hair: new THREE.SphereGeometry(.29, 24, 14, 0, Math.PI * 2, 0, Math.PI * .56),
-      cap: new THREE.SphereGeometry(.3, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2), brim: new THREE.CylinderGeometry(.2, .2, .035, 20),
-      eye: new THREE.SphereGeometry(.036, 10, 8), torso: new THREE.CapsuleGeometry(.16, .14, 6, 14), limb: new THREE.CapsuleGeometry(.055, .15, 4, 10),
-      leg: new THREE.CapsuleGeometry(.07, .12, 4, 10), shoe: new THREE.SphereGeometry(.08, 12, 8), hand: new THREE.SphereGeometry(.055, 10, 8),
-      pack: new THREE.CapsuleGeometry(.12, .1, 4, 12), veil: new THREE.ConeGeometry(.3, .34, 20, 1, true),
-    });
-    const part = (geo, col, x, y, z, parent = body, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(geo, this.smat(col)); m.position.set(x, y, z); m.scale.set(sx, sy, sz); m.castShadow = true; parent.add(m); return m; };
-    const leg = (x) => { const p = new THREE.Group(); p.position.set(x, .3, 0); body.add(p); part(G.leg, L.p, 0, -.12, 0, p); part(G.shoe, '#3a2e28', 0, -.25, .03, p, 1, .7, 1.35); return p; };
-    const arm = (x) => { const p = new THREE.Group(); p.position.set(x, .6, 0); body.add(p); part(G.limb, L.c, 0, -.1, 0, p); part(G.hand, L.s, 0, -.22, 0, p); p.rotation.z = x < 0 ? -.12 : .12; return p; };
-    const lL = leg(-.085), lR = leg(.085);
-    part(G.torso, L.c, 0, .5, 0, body, 1, 1, .85);
-    const aL = arm(-.2), aR = arm(.2);
-    if (player) { part(G.pack, '#3a6ad4', 0, .52, -.16, body, 1.05, 1, .6); part(this.box, '#2a4ea8', -.09, .55, -.03, body, .03, .3, .3); part(this.box, '#2a4ea8', .09, .55, -.03, body, .03, .3, .3); }
-    const head = new THREE.Group(); head.position.set(0, .93, 0); body.add(head);
-    part(G.head, L.s, 0, 0, 0, head);
-    part(G.eye, '#1a1a22', -.095, .0, .235, head, .8, 1.25, .6); part(G.eye, '#1a1a22', .095, .0, .235, head, .8, 1.25, .6);
-    part(G.eye, '#ffffff', -.085, .02, .258, head, .25, .3, .2); part(G.eye, '#ffffff', .105, .02, .258, head, .25, .3, .2);
-    if (L.hij) {
-      part(G.hair, L.hij, 0, .01, -.01, head, 1.06, 1.08, 1.06).rotation.x = -.5;
-      const v = part(G.veil, L.hij, 0, -.2, -.02, head); v.material = this.smat(L.hij); v.material.side = THREE.DoubleSide;
-    } else {
-      const hr = part(G.hair, L.h, 0, .02, -.01, head); hr.rotation.x = -.42;
-      if (L.hat) { part(G.cap, L.hat, 0, .05, -.01, head).rotation.x = -.12; part(G.brim, L.hat, 0, .07, .24, head, 1, 1, .95).rotation.x = .1; part(G.eye, '#ffffff', 0, .2, .25, head, 1.3, 1.1, .5); }
-    }
-    g.userData = { lL, lR, aL, aR, body, head, phase: 0 };
-    return g;
-  },
+  // ---------- Watak chibi & Monsta (lihat js/models3d.js) ----------
+  human(lookName) { return HumanModel.build(lookName); },
   poseHuman(g, dir, moving, dt, speed = 1) {
     const u = g.userData;
-    g.rotation.y = { down: 0, up: Math.PI, left: -Math.PI / 2, right: Math.PI / 2 }[dir] || 0;
+    if (dir) g.rotation.y = { down: 0, up: Math.PI, left: -Math.PI / 2, right: Math.PI / 2 }[dir] || 0;
     if (moving) u.phase += dt * 12 * speed; else u.phase = 0;
     const s = Math.sin(u.phase) * (moving ? .8 : 0);
     u.lL.rotation.x = s; u.lR.rotation.x = -s; u.aL.rotation.x = -s * .9; u.aR.rotation.x = s * .9;
     u.body.position.y = moving ? Math.abs(Math.sin(u.phase)) * .05 : Math.sin(Game.t * 2 + g.id) * .006;
     if (u.head) u.head.rotation.z = moving ? Math.sin(u.phase) * .05 : 0;
   },
-  // ---------- Monsta plush (dikembungkan daripada sprite) ----------
-  plushCache: {},
-  plushGeo(name) {
-    if (this.plushCache[name]) return this.plushCache[name];
-    const src = monstaSprite(name), S0 = 64, K = 2, N = S0 * K;
-    const d0 = src.getContext('2d').getImageData(0, 0, S0, S0).data;
-    // naikkan resolusi 2x dengan interpolasi bilinear (tepi licin)
-    const al = new Float32Array(N * N), col = new Float32Array(N * N * 3);
-    const px0 = (x, y) => { x = Math.max(0, Math.min(S0 - 1, x)); y = Math.max(0, Math.min(S0 - 1, y)); return (y * S0 + x) * 4; };
-    for (let Y = 0; Y < N; Y++) for (let X = 0; X < N; X++) {
-      const sx = (X + .5) / K - .5, sy = (Y + .5) / K - .5, x0 = Math.floor(sx), y0 = Math.floor(sy), fx = sx - x0, fy = sy - y0;
-      let a = 0, r = 0, g = 0, b = 0, wsum = 0;
-      for (const [dx, dy, w] of [[0, 0, (1 - fx) * (1 - fy)], [1, 0, fx * (1 - fy)], [0, 1, (1 - fx) * fy], [1, 1, fx * fy]]) {
-        const inb = x0 + dx >= 0 && y0 + dy >= 0 && x0 + dx < S0 && y0 + dy < S0;
-        const i = px0(x0 + dx, y0 + dy), aa = inb && d0[i + 3] > 10 ? 1 : 0;
-        a += aa * w; if (aa) { r += d0[i] * w; g += d0[i + 1] * w; b += d0[i + 2] * w; wsum += w; }
-      }
-      const k = Y * N + X; al[k] = a;
-      if (wsum) { col[k * 3] = r / wsum / 255; col[k * 3 + 1] = g / wsum / 255; col[k * 3 + 2] = b / wsum / 255; }
-    }
-    const on = (x, y) => x >= 0 && y >= 0 && x < N && y < N && al[y * N + x] > .5;
-    // jarak chamfer ke tepi
-    const INF = 1e4, dist = new Float32Array(N * N);
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) dist[y * N + x] = on(x, y) ? INF : 0;
-    const D = (x, y) => (x < 0 || y < 0 || x >= N || y >= N) ? 0 : dist[y * N + x];
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const i = y * N + x; if (!dist[i]) continue; dist[i] = Math.min(dist[i], D(x - 1, y) + 1, D(x, y - 1) + 1, D(x - 1, y - 1) + 1.414, D(x + 1, y - 1) + 1.414); }
-    for (let y = N - 1; y >= 0; y--) for (let x = N - 1; x >= 0; x--) { const i = y * N + x; if (!dist[i]) continue; dist[i] = Math.min(dist[i], D(x + 1, y) + 1, D(x, y + 1) + 1, D(x + 1, y + 1) + 1.414, D(x - 1, y + 1) + 1.414); }
-    // buang garis luar gelap supaya kelihatan seperti anak patung kain
-    const lum = i => col[i * 3] * .3 + col[i * 3 + 1] * .59 + col[i * 3 + 2] * .11;
-    for (let pass = 0; pass < 4; pass++) for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-      const i = y * N + x; if (!on(x, y) || dist[i] > 3.2 || lum(i) > .3) continue;
-      let r = 0, g = 0, b = 0, n = 0;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) { const j = (y + dy) * N + x + dx; if (on(x + dx, y + dy) && dist[j] > dist[i] && lum(j) > .3) { r += col[j * 3]; g += col[j * 3 + 1]; b += col[j * 3 + 2]; n++; } }
-      if (n) { col[i * 3] = r / n; col[i * 3 + 1] = g / n; col[i * 3 + 2] = b / n; }
-    }
-    // tinggi bulat (profil bulatan), dilicinkan
-    const R = 7.5 * K; let hp = new Float32Array(N * N);
-    for (let i = 0; i < N * N; i++) { if (!dist[i]) continue; const t = Math.min(dist[i], R); hp[i] = Math.sqrt(Math.max(0, t * (2 * R - t))) * .9 + .6; }
-    for (let it = 0; it < 7; it++) { const o = new Float32Array(N * N); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const i = y * N + x; if (!dist[i]) continue; let s = 0, n = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (on(x + dx, y + dy)) { s += hp[(y + dy) * N + x + dx]; n++; } o[i] = s / n; } hp = o; }
-    let maxY = 0; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (on(x, y)) maxY = Math.max(maxY, y);
-    // bucu di sudut piksel, depan & belakang
-    const V = N + 1, vid = new Int32Array(V * V).fill(-1);
-    const pos = [], clr = [], rimF = [], idx = [];
-    const c = new THREE.Color();
-    for (let j = 0; j < V; j++) for (let i = 0; i < V; i++) {
-      let n = 0, s = 0, rim = false, r = 0, gg = 0, b = 0;
-      for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) { const x = i + dx, y = j + dy; if (on(x, y)) { const k = y * N + x; n++; s += hp[k]; r += col[k * 3]; gg += col[k * 3 + 1]; b += col[k * 3 + 2]; } else rim = true; }
-      if (!n) continue;
-      const z = rim ? 0 : s / n;
-      c.setRGB(r / n, gg / n, b / n).convertSRGBToLinear();
-      vid[j * V + i] = pos.length / 3;
-      pos.push(i, j, z, i, j, -z);
-      clr.push(c.r, c.g, c.b, c.r * .9, c.g * .9, c.b * .9);
-      rimF.push(rim ? 1 : 0);
-    }
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-      if (!on(x, y)) continue;
-      const a = vid[y * V + x], b = vid[y * V + x + 1], cc = vid[(y + 1) * V + x + 1], dd = vid[(y + 1) * V + x];
-      idx.push(a, dd, cc, a, cc, b);
-      idx.push(a + 1, cc + 1, dd + 1, a + 1, b + 1, cc + 1);
-    }
-    // licinkan permukaan (Laplacian): garis bentuk dilicinkan dalam xy, permukaan dalam xyz
-    const nv = pos.length / 6;
-    const nb = []; for (let k = 0; k < nv; k++) nb.push([]);
-    for (let j = 0; j < V; j++) for (let i = 0; i < V; i++) {
-      const v = vid[j * V + i]; if (v < 0) continue; const k = v / 2;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) { const ii = i + dx, jj = j + dy; if (ii < 0 || jj < 0 || ii >= V || jj >= V) continue; const u = vid[jj * V + ii]; if (u < 0) continue; if (rimF[k] && !rimF[u / 2]) continue; nb[k].push(u / 2); }
-    }
-    for (let it = 0; it < 14; it++) {
-      const nx = new Float32Array(nv), ny = new Float32Array(nv), nz = new Float32Array(nv);
-      for (let k = 0; k < nv; k++) {
-        const L = nb[k]; let sx = 0, sy = 0, sz = 0;
-        for (const u of L) { sx += pos[u * 6]; sy += pos[u * 6 + 1]; sz += pos[u * 6 + 2]; }
-        const n = L.length, w = .5;
-        nx[k] = n ? pos[k * 6] * (1 - w) + sx / n * w : pos[k * 6];
-        ny[k] = n ? pos[k * 6 + 1] * (1 - w) + sy / n * w : pos[k * 6 + 1];
-        nz[k] = rimF[k] || !n ? pos[k * 6 + 2] : pos[k * 6 + 2] * (1 - w) + sz / n * w;
-      }
-      for (let k = 0; k < nv; k++) { pos[k * 6] = pos[k * 6 + 3] = nx[k]; pos[k * 6 + 1] = pos[k * 6 + 4] = ny[k]; pos[k * 6 + 2] = nz[k]; pos[k * 6 + 5] = -nz[k]; }
-    }
-    const sc = 1 / (32 * K), zs = sc * 1.15;
-    const P = new Float32Array(pos.length);
-    for (let k = 0; k < pos.length; k += 3) { P[k] = (pos[k] - 32 * K) * sc; P[k + 1] = (maxY + 1 - pos[k + 1]) * sc; P[k + 2] = pos[k + 2] * zs; }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(P, 3));
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(clr, 3));
-    geo.setIndex(idx); geo.computeVertexNormals(); geo.computeBoundingSphere();
-    geo.userData.shared = true;
-    return (this.plushCache[name] = geo);
-  },
-  voxel(name, scale = 1) { // nama lama dikekalkan: kini model plush lembut
-    const mesh = new THREE.Mesh(this.plushGeo(name), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .92, metalness: 0 }));
-    mesh.castShadow = true; mesh.receiveShadow = true;
-    mesh.scale.setScalar(scale);
-    const g = new THREE.Group(); g.add(mesh); g.userData.mesh = mesh;
+  voxel(name, scale = 1) { // nama lama dikekalkan: kini model 3D kartun
+    const g = MonModel.build(name);
+    g.userData.setSize(scale);
     return g;
   },
   // ---------- Pembina instance (dikongsi dunia & arena) ----------
@@ -1021,7 +940,7 @@ vec3 atl(float i, vec2 p){
     const lead = S.surf ? (S.party.find(m => m.moves.some(q => q.id === 'ombak')) || S.party[0]) : null;
     if (lead && (!this.surfMon || this.surfMon.userData.name !== lead.sp)) { if (this.surfMon) this.world.remove(this.surfMon); this.surfMon = this.voxel(lead.sp, .55); this.surfMon.userData.name = lead.sp; this.world.add(this.surfMon); }
     if (!lead && this.surfMon) { this.world.remove(this.surfMon); this.surfMon = null; }
-    if (this.surfMon) { this.surfMon.position.set(px, -.1 + Math.sin(Game.t * 3) * .04, pz); this.surfMon.rotation.y = this.player.rotation.y + Math.PI / 2; }
+    if (this.surfMon) { this.surfMon.position.set(px, -.2 + Math.sin(Game.t * 3) * .04, pz); this.surfMon.rotation.y = this.player.rotation.y; this.surfMon.userData.update(Game.t); }
     // objek
     const alive = new Set();
     for (const o of World.objs) {
@@ -1042,7 +961,7 @@ vec3 atl(float i, vec2 p){
       const ox = o.px / 16 + .5, oz = o.py / 16 + .5;
       e.position.set(ox, e.userData.ball ? (d.u === 'K' ? .63 : .17) : 0, oz); // bola di atas meja
       if (d.s) this.poseHuman(e, o.dir, !!o.moving, dt);
-      if (d.mon) { e.position.y = Math.sin(Game.t * 2) * .05; e.rotation.y = -.5; }
+      if (d.mon) { e.rotation.y = -.5; e.userData.update(Game.t); }
       if (d.frag || d.ball === 'cahaya') { e.userData.frag.rotation.y = Game.t * 2; e.userData.frag.position.y = .55 + Math.sin(Game.t * 3) * .08; }
       if (d.sign) e.rotation.y = 0;
       e.visible = true;
@@ -1051,10 +970,15 @@ vec3 atl(float i, vec2 p){
     // bangunan di hadapan pemain menjadi lut sinar
     for (const b of this.blds || []) {
       const [bx, by, bw, bh] = b.userData.fp;
-      const hide = px > bx - .3 && px < bx + bw + .3 && pz < by + bh - .3 && pz > by - 3.5;
+      // lut sinar hanya jika bangunan benar-benar menghalang garis pandang kamera ke pemain
+      let hide = false;
+      if (px > bx - 1 && px < bx + bw + 1 && pz < by + bh && pz > by - 6) {
+        const top = b.userData.top || 2.5, dx = this.camPos.x - px, dy = this.camPos.y - .8, dz = this.camPos.z - pz;
+        for (let k = 1; k <= 16 && !hide; k++) { const t = k / 16 * .6, qx = px + dx * t, qy = .8 + dy * t, qz = pz + dz * t; if (qy > top) break; if (qx > bx - .05 && qx < bx + bw + .05 && qz > by - .1 && qz < by + bh - .2) hide = true; }
+      }
       if (b.userData.hidden !== hide) {
         b.userData.hidden = hide;
-        b.traverse(o => { if (o.material) for (const mm of [].concat(o.material)) { mm.transparent = hide; mm.opacity = hide ? .28 : 1; mm.depthWrite = !hide; } });
+        b.traverse(o => { if (o.material) for (const mm of [].concat(o.material)) { mm.transparent = hide; mm.opacity = hide ? .35 : 1; mm.depthWrite = !hide; mm.needsUpdate = true; } });
       }
     }
     for (const pg of this.portals || []) { pg.children[0].rotation.z = Game.t * 1.5; pg.userData.core.material.opacity = .55 + Math.sin(Game.t * 3) * .2; }
@@ -1065,8 +989,8 @@ vec3 atl(float i, vec2 p){
     }
     // kamera diorama
     const por = PORTRAIT, ins = this.inside;
-    const off = ins ? (por ? [0, 12, 7.6] : [0, 9.2, 6.6]) : (por ? [0, 14.5, 9.4] : [0, 10.6, 8.6]);
-    this.cam.fov = por ? 50 : 40; this.cam.updateProjectionMatrix();
+    const off = ins ? (por ? [0, 9.6, 7.2] : [0, 7.2, 6.4]) : (por ? [0, 9.4, 7.4] : [0, 7.8, 7.4]);
+    this.cam.fov = por ? 48 : 38; this.cam.updateProjectionMatrix();
     const tx = px, tz = pz + (por ? .6 : 0);
     const tgt = new THREE.Vector3(tx, .4, tz), pos = new THREE.Vector3(tx + off[0], off[1], tz + off[2]);
     if (this.snap || this.camPos.distanceTo(pos) > 6) { this.camPos.copy(pos); this.camTgt.copy(tgt); this.snap = false; }
@@ -1074,7 +998,7 @@ vec3 atl(float i, vec2 p){
     this.cam.position.copy(this.camPos); this.cam.lookAt(this.camTgt);
     this.sun.position.set(this.camTgt.x - 7, 15, this.camTgt.z + 5); this.sun.target.position.copy(this.camTgt);
     const fy = 1 - this.project(px, .6, pz)[1] / SH;
-    this.present(this.world, this.cam, fy, ins ? .24 : .19, ins ? 1 : 1.7);
+    this.present(this.world, this.cam, fy, ins ? .4 : .3, ins ? 0 : .7);
     return true;
   },
   project(x, y, z, cam = this.cam) {
@@ -1238,16 +1162,16 @@ vec3 atl(float i, vec2 p){
     if (meM) {
       meM.visible = bs.meVis && !(bs.meBlink > 0 && Math.floor(Game.t * 16) % 2);
       meM.position.set(mePos.x + bs.meX / 60, -bs.meY / 90 + Math.max(0, Math.sin(t * 2.2)) * .04, mePos.z);
-      meM.rotation.y = Math.PI + .55;
+      meM.rotation.y = Math.PI + .55; meM.userData.update(Game.t);
       const k = 1 + Math.sin(t * 2.2) * .018; meM.scale.set(k, 1 / k, k);
     }
     if (foeM) {
       foeM.visible = bs.foeVis && !(bs.foeBlink > 0 && Math.floor(Game.t * 16) % 2);
       const sc = bs.foeScale, k = 1 + Math.sin(t * 2 + 1) * .018;
       foeM.position.set(foePos.x + bs.foeX / 60, -bs.foeY / 90 + Math.max(0, Math.sin(t * 2 + 1)) * .04, foePos.z);
-      foeM.rotation.y = -.45;
+      foeM.rotation.y = -.45; foeM.userData.update(Game.t);
       foeM.scale.set(sc * k, sc / k, sc * k);
-      foeM.userData.mesh.material.color.set(ghost ? 0x221a30 : 0xffffff);
+      foeM.userData.tint(ghost ? 'ghost' : null);
     }
     if (this.meTrM) { this.meTrM.visible = bs.meTr; this.meTrM.position.set(mePos.x - .3 + bs.meTrX / 60, 0, mePos.z + .2); this.meTrM.rotation.y = Math.PI * .8; }
     if (this.foeTrM) { this.foeTrM.visible = bs.foeTr; this.foeTrM.position.set(foePos.x + bs.foeTrX / 60, 0, foePos.z); this.foeTrM.rotation.y = -.4; }
@@ -1275,12 +1199,95 @@ vec3 atl(float i, vec2 p){
     this.bcam.fov = por ? 58 : 40; this.bcam.updateProjectionMatrix();
     this.bcam.position.copy(cp); this.bcam.lookAt(look);
     this.bsun.target.position.set(0, 0, -1); this.bsun.position.set(-6, 12, 7);
-    this.present(this.battle, this.bcam, .38, .27, 1.6);
+    this.present(this.battle, this.bcam, .38, .3, 0);
     return true;
   },
   battleAnchor(side) {
     const p = side === 'me' ? this.plats[0].position : this.plats[1].position;
     return this.project(p.x, side === 'me' ? 2.6 : 2.4, p.z, this.bcam);
+  },
+  // ---------- Skrin tajuk: padang pantai Seberang Perai waktu senja ----------
+  glowTex(inner, outer, size = 128) {
+    const [c, g] = mkCanvas(size, size); g.imageSmoothingEnabled = true;
+    const gr = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    gr.addColorStop(0, inner); gr.addColorStop(.35, outer); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, size, size);
+    return this.canvasTex(c);
+  },
+  setupTitle() {
+    const s = new THREE.Scene(), T = this.title = { s };
+    s.background = this.skyTex('#1d1340', '#c8587a', '#ffc27a');
+    s.fog = new THREE.Fog(0xe89a86, 20, 75);
+    s.add(new THREE.HemisphereLight(0xffc8d8, 0x3f6a34, .62));
+    const key = new THREE.DirectionalLight(0xffd6a8, 1.45); key.position.set(-6, 8, 9); key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
+    const kc = key.shadow.camera; kc.left = -9; kc.right = 9; kc.top = 9; kc.bottom = -9; kc.far = 40; key.shadow.bias = -.0006; key.shadow.normalBias = .03;
+    s.add(key, key.target);
+    const rim = new THREE.DirectionalLight(0xff9860, 1.3); rim.position.set(3, 5, -14); s.add(rim, rim.target);
+    // tanah: rumput dengan tapak tanah di bawah wira
+    if (this.atlas) {
+      const res = 1, GW = 90, GH = 90, ox = 45, oz = 65, A = new Uint8Array(GW * GH * 4), B = new Uint8Array(GW * GH * 4);
+      for (let j = 0; j < GH; j++) for (let i = 0; i < GW; i++) { const wx = i + .5 - ox, wz = j + .5 - oz; if (Math.hypot(wx * .8, wz) < 2.6) A[(j * GW + i) * 4] = 255; }
+      const g = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), this.groundMat(this.splatTex(GW, GH, A), this.splatTex(GW, GH, B), new THREE.Vector2(ox * res, oz * res), new THREE.Vector2(GW, GH), res, .4));
+      g.rotation.x = -Math.PI / 2; g.position.set(0, 0, -20); g.receiveShadow = true; s.add(g);
+    } else { const g = new THREE.Mesh(new THREE.CircleGeometry(60, 40), this.mat('#6cb445')); g.rotation.x = -Math.PI / 2; g.receiveShadow = true; s.add(g); }
+    // laut senja di kaki langit
+    const sea = new THREE.Mesh(new THREE.PlaneGeometry(260, 70), new THREE.MeshPhongMaterial({ color: 0xe0907a, shininess: 120, specular: 0xffe0b0 }));
+    sea.rotation.x = -Math.PI / 2; sea.position.set(0, .03, -62); s.add(sea);
+    // bukit jauh
+    for (let i = 0; i < 7; i++) { const h = new THREE.Mesh(this.lib.bushG, new THREE.MeshLambertMaterial({ color: 0x5a4a6a, vertexColors: false, fog: true })); h.scale.set(14 + hash(i, 1) * 10, 5 + hash(i, 2) * 5, 8); h.position.set(-50 + i * 17 + hash(i, 3) * 6, -1, -40 - hash(i, 4) * 6); s.add(h); }
+    // matahari, sinar & awan
+    const sun = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex('rgba(255,250,220,1)', 'rgba(255,180,110,.55)'), blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    sun.scale.set(34, 34, 1); sun.position.set(6, 5, -70); s.add(sun);
+    const [rc, rg] = mkCanvas(256, 256); rg.translate(128, 128);
+    for (let i = 0; i < 18; i++) { rg.rotate(Math.PI * 2 / 18); const gr = rg.createLinearGradient(0, 0, 128, 0); gr.addColorStop(0, 'rgba(255,220,160,.5)'); gr.addColorStop(1, 'rgba(255,220,160,0)'); rg.fillStyle = gr; rg.beginPath(); rg.moveTo(0, 0); rg.lineTo(128, -7 - (i % 3) * 3); rg.lineTo(128, 7 + (i % 3) * 3); rg.fill(); }
+    T.rays = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.canvasTex(rc), blending: THREE.AdditiveBlending, depthWrite: false, fog: false, opacity: .55 }));
+    T.rays.scale.set(95, 95, 1); T.rays.position.copy(sun.position); s.add(T.rays);
+    for (let i = 0; i < 10; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.cloudTex, transparent: true, depthWrite: false, fog: false, color: i % 2 ? 0xffc0c8 : 0xffd8b0, opacity: .8 })); const sc = 12 + hash(i, 40) * 14; sp.scale.set(sc, sc / 2, 1); sp.position.set((hash(i, 41) - .5) * 120, 12 + hash(i, 42) * 12, -55 - hash(i, 43) * 12); s.add(sp); }
+    // hiasan: pokok, semak, rumput, bunga
+    const I = this.instBuilder(), add = I.add, R = (i, k) => hash(i, k, 77);
+    const FLW = [0xffffff, 0xfff1a0, 0xffa4b4, 0xffd24a];
+    const clear = (x, z) => Math.hypot(x * .8, z) < 2.8;
+    for (let i = 0; i < (this.hi ? 900 : 400); i++) { const x = (R(i, 1) - .5) * 40, z = 2.5 - R(i, 2) * 26; if (clear(x, z)) continue; const sc = .9 + R(i, 3) * .8; add(i % 3 ? 'tuft' : 'tuft2', x, 0, z, sc, sc, sc, 0xffe0c8, R(i, 4) * 6); }
+    for (let i = 0; i < 220; i++) { const x = (R(i, 5) - .5) * 36, z = 6 - R(i, 6) * 24; if (clear(x, z)) continue; add('flower', x, 0, z, 1.3, 1.1, 1.3, FLW[i % FLW.length], R(i, 7) * 6); }
+    for (let i = 0; i < 34; i++) {
+      const side = i % 2 ? 1 : -1, x = side * (6 + R(i, 8) * 16), z = -3 - R(i, 9) * 16, sc = 1.6 + R(i, 10) * 1.4;
+      add('trunk', x, 0, z, sc, sc, sc, 0xffd8c0, R(i, 11) * 6); add('canopy', x, .45 * sc, z, sc, sc, sc, 0xffd8c8, R(i, 12) * 6);
+    }
+    for (let i = 0; i < 12; i++) { const x = (i % 2 ? 1 : -1) * (4 + R(i, 13) * 4), z = -1 - R(i, 14) * 4, sc = 1.3 + R(i, 15); add('bush', x, 0, z, sc, sc * .9, sc, 0xffe0d0, R(i, 16) * 6); }
+    for (let i = 0; i < 6; i++) { const x = (i % 2 ? 1 : -1) * (3 + R(i, 17) * 5), z = 2 - R(i, 18) * 6, sc = .3 + R(i, 19) * .5; add('rock', x, sc * .25, z, sc * 1.3, sc, sc, 0xffe8e0, R(i, 20) * 6); }
+    I.build(s);
+    // wira: tiga Monsta pemula dan Jentayu
+    T.heroes = [['Anakpadi', -2.1, .5, .35], ['Percik', 0, 0, 0], ['Penyucil', 2.1, .5, -.35]].map(([n, x, z, ry], k) => { const m = this.voxel(n, 1.35); m.position.set(x, 0, z); m.rotation.y = ry; m.userData.k = k; s.add(m); return m; });
+    T.bird = this.voxel('Jentayu', 1.5); T.bird.position.set(-.3, 3.4, -6); s.add(T.bird);
+    // kunang-kunang
+    const N = 140, pos = new Float32Array(N * 3); T.pv = [];
+    for (let i = 0; i < N; i++) { pos[i * 3] = (R(i, 30) - .5) * 20; pos[i * 3 + 1] = R(i, 31) * 6; pos[i * 3 + 2] = 4 - R(i, 32) * 16; T.pv.push(.2 + R(i, 33) * .5); }
+    const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    T.parts = new THREE.Points(pg, new THREE.PointsMaterial({ size: .22, map: this.glowTex('rgba(255,255,220,1)', 'rgba(255,220,120,.6)', 64), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffe8a0 }));
+    s.add(T.parts);
+    T.cam = new THREE.PerspectiveCamera(40, 1, .1, 300);
+  },
+  // intro: 0..1 (dolly kamera masuk); kembali kedudukan skrin kepala wira untuk susun atur UI
+  drawTitle(t, intro = 1) {
+    if (!this.ok) return false;
+    Game.used3d = true;
+    if (!this.title) this.setupTitle();
+    const T = this.title, dt = Game.dt || .016;
+    T.heroes.forEach((m, k) => { const b = Math.max(0, Math.sin(t * 2.4 + k * 1.3)); m.position.y = b * .12; const q = 1 + b * .04; m.scale.set(1 / Math.sqrt(q), q, 1 / Math.sqrt(q)); m.rotation.y = [.35, 0, -.35][k] + Math.sin(t * .7 + k) * .12; m.userData.update(t); });
+    T.bird.userData.update(t);
+    if (PORTRAIT) T.bird.position.set(1.7, 2.35 + Math.sin(t * 1.3) * .2, -6.5); else T.bird.position.set(5.4, 1.95 + Math.sin(t * 1.3) * .25, -5.5);
+    T.bird.scale.setScalar(PORTRAIT ? .85 : 1); T.bird.rotation.y = Math.sin(t * .4) * .3; T.bird.rotation.z = Math.sin(t * 1.3) * .05;
+    const p = T.parts.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) { let y = p.getY(i) + T.pv[i] * dt; if (y > 6.5) y = 0; p.setY(i, y); p.setX(i, p.getX(i) + Math.sin(t + i) * .004); }
+    p.needsUpdate = true;
+    T.rays.material.rotation = t * .04;
+    const por = PORTRAIT, e = 1 - Math.pow(1 - Math.min(1, intro), 3);
+    const cam = T.cam; cam.aspect = this.aspect; cam.fov = por ? 58 : 38; cam.updateProjectionMatrix();
+    const a = Math.sin(t * .13) * .22, Rr = (por ? 13 : 11) + (1 - e) * 10;
+    cam.position.set(Math.sin(a) * Rr, (por ? 3.2 : 3.1) + (1 - e) * 4, Math.cos(a) * Rr + .5);
+    cam.lookAt(0, por ? -.9 : -.2, -1);
+    this.present(T.s, cam, .5, .3, 0);
+    return true;
   },
   // ---------- Pameran (skrin tajuk, evolusi, Monstadex) ----------
   setupShow() {
@@ -1313,8 +1320,7 @@ vec3 atl(float i, vec2 p){
     m.rotation.y = o.rot !== undefined ? o.rot : Math.sin(Game.t * .6) * .7 - (o.human ? 0 : .3);
     m.position.y = o.human ? 0 : Math.sin(Game.t * 2) * .06;
     if (o.human) this.poseHuman(m, 'down', false, 0); else {
-      m.userData.mesh.material.emissive = new THREE.Color(o.white ? 0xffffff : 0x000000);
-      m.userData.mesh.material.color.set(o.white ? 0x000000 : 0xffffff);
+      m.userData.tint(o.white ? 'white' : null); m.userData.update(Game.t);
     }
     if (o.human) m.rotation.y = Math.sin(Game.t * .6) * .4;
     const por = PORTRAIT;
@@ -1322,7 +1328,7 @@ vec3 atl(float i, vec2 p){
     const y0 = o.y !== undefined ? o.y : 0;
     this.scam.position.set(0, 2.2 + (por ? 1.5 : 0), por ? 11 : 8.5); this.scam.lookAt(0, 1.3 + y0, 0);
     this.scam.updateProjectionMatrix();
-    this.present(this.show, this.scam, por ? .5 : .4, .3, 1.4);
+    this.present(this.show, this.scam, por ? .5 : .4, .3, 0);
     return true;
   }
 };
