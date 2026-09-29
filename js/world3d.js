@@ -75,10 +75,17 @@ Object.assign(R3, {
       if (BLDS.has(ch) || /\d/.test(ch)) return under;
       return ch;
     };
+    const fIdx = (i, j) => j * GW + i;
+    // jarak air ke daratan (jubin): -1 = bukan air; digunakan untuk lekuk tasik dan kedalaman
+    const wat = (i, j) => { if (i < 0 || j < 0 || i >= GW || j >= GH) return true; const c = cell(i - M, j - M); return isW(c) || c === 'b' || c === 'k'; };
+    const wd = new Int8Array(GW * GH).fill(-1), wq = [];
+    for (let j = 0; j < GH; j++) for (let i = 0; i < GW; i++) if (wat(i, j)) { let land = false; for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) if ((di || dj) && i + di >= 0 && j + dj >= 0 && i + di < GW && j + dj < GH && !wat(i + di, j + dj)) land = true; wd[fIdx(i, j)] = land ? 0 : 99; if (land) wq.push(i, j); }
+    for (let qi = 0; qi < wq.length; qi += 2) { const i = wq[qi], j = wq[qi + 1], d = wd[fIdx(i, j)]; for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const a = i + di, b = j + dj; if (a >= 0 && b >= 0 && a < GW && b < GH && wd[fIdx(a, b)] === 99) { wd[fIdx(a, b)] = d + 1; wq.push(a, b); } } }
+    this._wd = wd;
+    const nearWater = (i, j) => { for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) { const a = i + di, b = j + dj; if (a >= 0 && b >= 0 && a < GW && b < GH && wd[fIdx(a, b)] >= 0) return true; } return false; };
     // jarak jubin ke jubin rata (rupa bumi berbukit hanya jauh dari laluan/bangunan)
     const fd = new Float32Array(GW * GH).fill(9);
-    const fIdx = (i, j) => j * GW + i;
-    for (let j = 0; j < GH; j++) for (let i = 0; i < GW; i++) { const x = i - M, y = j - M, inMap = x >= 0 && y >= 0 && x < W && y < H; if (!outdoor || (inMap && flatKeep(cell(x, y)))) fd[fIdx(i, j)] = 0; }
+    for (let j = 0; j < GH; j++) for (let i = 0; i < GW; i++) { const x = i - M, y = j - M, inMap = x >= 0 && y >= 0 && x < W && y < H; if (!outdoor || (inMap && (flatKeep(cell(x, y)) || nearWater(i, j)))) fd[fIdx(i, j)] = 0; }
     for (let pass = 0; pass < 2; pass++) {
       const j0 = pass ? GH - 1 : 0, j1 = pass ? -1 : GH, js = pass ? -1 : 1, i0 = pass ? GW - 1 : 0, i1 = pass ? -1 : GW, is = pass ? -1 : 1;
       for (let j = j0; j !== j1; j += js) for (let i = i0; i !== i1; i += is) {
@@ -88,7 +95,7 @@ Object.assign(R3, {
       }
     }
     // tinggi bucu (2 bucu setiap jubin)
-    const VW = GW * 2 + 1, VH = GH * 2 + 1, hg = new Float32Array(VW * VH), tb = (i, j) => { if (i < 0 || j < 0 || i >= GW || j >= GH) return 0; const c = cell(i - M, j - M); return (isW(c) || c === 'b' || c === 'k') ? -.3 : 0; };
+    const VW = GW * 2 + 1, VH = GH * 2 + 1, hg = new Float32Array(VW * VH), tb = (i, j) => { if (i < 0 || j < 0 || i >= GW || j >= GH) return 0; const d = wd[fIdx(i, j)]; return d >= 0 ? -.3 - Math.min(d, 3) * .08 : 0; };
     const fdAt = (wx, wz) => { const u = wx + M - .5, v = wz + M - .5, i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j, g = (a, b) => fd[fIdx(Math.min(GW - 1, Math.max(0, a)), Math.min(GH - 1, Math.max(0, b)))]; return (g(i, j) * (1 - fu) + g(i + 1, j) * fu) * (1 - fv) + (g(i, j + 1) * (1 - fu) + g(i + 1, j + 1) * fu) * fv; };
     const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
     const marginRise = border === '^' ? 4.6 : 2.6;
@@ -116,6 +123,7 @@ Object.assign(R3, {
     for (let j = 0; j < GH; j++) for (let i = 0; i < GW; i++) {
       const g = groundOf(cell(i - M, j - M));
       let c = g === 'E' ? (inside ? (under === 'j' ? 6 : 5) : 4) : (GRND[g] || 0);
+      if (inside && c === 5 && /^(menara|pasaraya|stesen|klinik|makmal|muzium)/.test(m.id || '')) c = 6;
       if (!c) continue;
       (c <= 4 ? A : B)[(j * GW + i) * 4 + ((c - 1) % 4)] = 255;
     }
@@ -398,31 +406,36 @@ vec3 atl(float i, vec2 p){
   diffuseColor.rgb *= col;
 `);
     };
-    mat.customProgramCacheKey = () => 'tanah2';
+    mat.customProgramCacheKey = () => 'tanah2'; mat.userData.tex = [sa, sb];
     return mat;
   },
   // ---------- air: gelombang, kedalaman, buih tepi pantai ----------
   buildWater(wg, cell, water, GW, GH, M) {
     this.water = null; if (!water.length) return;
-    const isW = c => c === '~' || c === 'w' || c === 'b' || c === 'k';
-    // jarak ke daratan (dalam jubin) menggunakan BFS berbilang sumber dalam kawasan air
-    const key = (x, y) => (y + M) * GW + (x + M), dist = new Map(), q = [];
-    const set = new Set(water.map(([x, y]) => key(x, y)));
-    for (const [x, y] of water) { let land = false; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) if (!isW(cell(x + dx, y + dy))) land = true; if (land) { dist.set(key(x, y), 0); q.push([x, y]); } }
-    for (let qi = 0; qi < q.length; qi++) { const [x, y] = q[qi], d = dist.get(key(x, y)); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy, k = key(nx, ny); if (set.has(k) && !dist.has(k)) { dist.set(k, d + 1); q.push([nx, ny]); } } }
-    const dOf = (x, y) => set.has(key(x, y)) ? (dist.has(key(x, y)) ? dist.get(key(x, y)) : 6) : 0;
-    const pos = [], dep = [], idx = [];
-    for (const [x, y] of water) {
-      const b = pos.length / 3;
-      for (const [cx, cy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) {
-        pos.push(x + cx, 0, y + cy);
-        // kedalaman pada bucu = purata jarak 4 jubin bersebelahan (daratan = 0)
-        dep.push(Math.min(1, ((dOf(x + cx - 1, y + cy - 1) + dOf(x + cx, y + cy - 1) + dOf(x + cx - 1, y + cy) + dOf(x + cx, y + cy)) / 4) / 3.2));
-      }
-      idx.push(b, b + 2, b + 1, b, b + 3, b + 2);
+    const wd = this._wd, hg = this.hg, VW = this.VW, W = this.W, H = this.H;
+    const wdAt = (i, j) => (i < 0 || j < 0 || i >= GW || j >= GH) ? 3 : wd[j * GW + i];
+    const near = (i, j) => { for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) if (wdAt(i + di, j + dj) >= 0 && !(i + di < 0 || j + dj < 0 || i + di >= GW || j + dj >= GH)) return true; return false; };
+    const pos = [], bed = [], dep = [], idx = [];
+    const dTile = (i, j) => { const d = wdAt(i, j); return d < 0 ? 0 : Math.min(d, 6); };
+    const vert = (a, b) => { // bucu grid (setengah jubin)
+      const i0 = a % 2 ? (a - 1) / 2 : a / 2 - 1, i1 = a % 2 ? i0 : i0 + 1, j0 = b % 2 ? (b - 1) / 2 : b / 2 - 1, j1 = b % 2 ? j0 : j0 + 1;
+      pos.push(-M + a / 2, 0, -M + b / 2); bed.push(hg[b * VW + a]);
+      dep.push(Math.min(1, (dTile(i0, j0) + dTile(i1, j0) + dTile(i0, j1) + dTile(i1, j1)) / 4 / 3.2));
+      return pos.length / 3 - 1;
+    };
+    const cache = new Map(), V = (a, b) => { const k = b * 4096 + a; let v = cache.get(k); if (v === undefined) { v = vert(a, b); cache.set(k, v); } return v; };
+    for (let j = 0; j < GH; j++) for (let i = 0; i < GW; i++) {
+      if (!near(i, j)) continue;
+      const x = i - M, y = j - M, fine = x >= -2 && y >= -2 && x < W + 2 && y < H + 2;
+      if (fine) for (let cb = 0; cb < 2; cb++) for (let ca = 0; ca < 2; ca++) {
+        const a = i * 2 + ca, b = j * 2 + cb, v = [V(a, b), V(a + 1, b), V(a + 1, b + 1), V(a, b + 1)];
+        if (Math.min(bed[v[0]], bed[v[1]], bed[v[2]], bed[v[3]]) > -.02) continue; // seluruh sel di atas air
+        idx.push(v[0], v[2], v[1], v[0], v[3], v[2]);
+      } else if (wdAt(i, j) >= 0) { const a = i * 2, b = j * 2, v = [V(a, b), V(a + 2, b), V(a + 2, b + 2), V(a, b + 2)]; idx.push(v[0], v[2], v[1], v[0], v[3], v[2]); }
     }
+    if (!idx.length) return;
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('aDepth', new THREE.Float32BufferAttribute(dep, 1)); g.setIndex(idx);
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('aDepth', new THREE.Float32BufferAttribute(dep, 1)); g.setAttribute('aBed', new THREE.Float32BufferAttribute(bed, 1)); g.setIndex(idx);
     g.computeBoundingSphere();
     const wm = new THREE.Mesh(g, this.waterMat()); wm.position.y = -.04; wm.frustumCulled = false; wm.renderOrder = 5; wm.matrixAutoUpdate = false; wm.updateMatrix();
     wg.add(wm); this.water = wm;
@@ -431,12 +444,12 @@ vec3 atl(float i, vec2 p){
     if (this._waterMat) return this._waterMat;
     const m = new THREE.ShaderMaterial({
       uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: U3.uTime, uShallow: { value: new THREE.Color('#5fd0d8') }, uDeep: { value: new THREE.Color('#1b6fc0') }, uSky: { value: new THREE.Color('#bfe4ff') }, uSunDir: { value: new THREE.Vector3(-.5, .8, .5) }, uSunCol: { value: new THREE.Color('#fff0d0') } }]),
-      vertexShader: `attribute float aDepth; varying float vD; varying vec3 vW;
+      vertexShader: `attribute float aDepth; attribute float aBed; varying float vD; varying float vB; varying vec3 vW;
         #include <fog_pars_vertex>
-        void main(){ vD = aDepth; vec4 wp = modelMatrix * vec4(position, 1.0); vW = wp.xyz; vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;
+        void main(){ vD = aDepth; vB = aBed; vec4 wp = modelMatrix * vec4(position, 1.0); vW = wp.xyz; vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;
         #include <fog_vertex>
         }`,
-      fragmentShader: `uniform float uTime; uniform vec3 uShallow, uDeep, uSky, uSunDir, uSunCol; varying float vD; varying vec3 vW;
+      fragmentShader: `uniform float uTime; uniform vec3 uShallow, uDeep, uSky, uSunDir, uSunCol; varying float vD; varying float vB; varying vec3 vW;
         #include <fog_pars_fragment>
         float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
         float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f); return mix(mix(h21(i), h21(i + vec2(1., 0.)), f.x), mix(h21(i + vec2(0., 1.)), h21(i + vec2(1., 1.)), f.x), f.y); }
@@ -447,15 +460,17 @@ vec3 atl(float i, vec2 p){
           vec3 N = normalize(vec3(g.x * .5, 1., g.y * .5));
           vec3 V = normalize(cameraPosition - vW);
           float fr = pow(1. - max(dot(N, V), 0.), 3.);
-          vec3 base = mix(uShallow, uDeep, smoothstep(.0, .8, vD));
+          float dep = max(vW.y - vB, 0.);
+          float dd = clamp(max(dep / .5, vD), 0., 1.);
+          vec3 base = mix(uShallow, uDeep, smoothstep(.05, .85, dd));
           vec3 col = mix(base, uSky, fr * .38);
           vec3 H = normalize(normalize(uSunDir) + V);
           col += uSunCol * pow(max(dot(N, H), 0.), 90.) * 1.3;
           float sp = pow(max(dot(N, H), 0.), 30.) * .12; col += uSunCol * sp;
-          float wave = sin(vD * 22. - t * 2.2 + n1 * 4.) * .5 + .5;
-          float foam = smoothstep(.13, .0, vD + (n2 - .5) * .1) * (.5 + .5 * wave);
+          float wave = sin(dep * 60. - t * 2.2 + n1 * 4.) * .5 + .5;
+          float foam = smoothstep(.055, .0, dep + (n2 - .5) * .035) * (.55 + .45 * wave);
           col = mix(col, vec3(1.), clamp(foam, 0., 1.) * .85);
-          float alpha = mix(.74, .96, smoothstep(.0, .4, vD)); alpha = max(alpha, foam);
+          float alpha = mix(.35, .95, smoothstep(.0, .16, dep)); alpha = max(alpha, foam * .9);
           gl_FragColor = vec4(col, alpha);
           #include <tonemapping_fragment>
           #include <encodings_fragment>
@@ -479,7 +494,7 @@ vec3 atl(float i, vec2 p){
     if (g && tx >= 0 && tz >= 0 && tx < this.W && tz < this.H) {
       const c = g[tz][tx];
       if (c === 'b') h = Math.max(h, .1); else if (c === 'k') h = Math.max(h, .12);
-      else if (c === 'L') { const t = z - tz, p = t < .1 ? t / .1 * .16 : t < .26 ? .16 + (t - .1) / .16 * .14 : t < .66 ? .3 + Math.sin((t - .26) / .4 * Math.PI) * .03 : Math.max(0, .3 * (1 - (t - .66) / .34)); h += p; }
+      else if (c === 'L') { h += ST.ledgeH(z - tz); }
       else if (c === 'p') h = Math.max(h, 0);
     }
     for (const s of this.stairs) if (x >= s.x0 && x <= s.x1 && z >= s.z0 && z <= s.z1) { const t = Math.min(1, Math.max(0, (s.z1 - z) / (s.z1 - s.z0))); h = Math.max(h, s.y1 + (s.y0 - s.y1) * t); }

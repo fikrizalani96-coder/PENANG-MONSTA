@@ -13,13 +13,13 @@ const path = require('path');
   const r = await page.evaluate(() => {
     const out = { ok: R3.ok, mons: 0, humans: 0, maps: 0, bad: [] };
     for (const row of MONSTA_RAW) { try { const m = R3.voxel(row[1], 1); m.userData.update(1); m.userData.tint('white'); m.userData.tint(null); out.mons++; } catch (e) { out.bad.push(row[1] + ': ' + e.message); } }
-    for (const k of Object.keys(LOOKS)) { try { R3.poseHuman(R3.human(k), 'left', true, .1); out.humans++; } catch (e) { out.bad.push(k + ': ' + e.message); } }
+    for (const k of Object.keys(LOOKS)) { try { R3.poseHuman(R3.human(k), 3, true, .1, .3); out.humans++; } catch (e) { out.bad.push(k + ': ' + e.message); } }
     S = newState(); S.party.push(makeMon('Percik', 12));
     Game.scenes = [World.scene]; Game.fade = 0; Game.fadeTarget = 0;
     for (const id in MAPS) { if (MAPS[id].template) continue; try { const m = MAPS[id]; const p = findTile(m, 'E') || m.marks[0] || { x: 1, y: 1 }; World.load(id, p.x, p.y, 'down'); R3.drawWorld(); out.maps++; } catch (e) { out.bad.push(id + ': ' + e.message); } }
     return out;
   });
-  await page.evaluate(() => { World.load('laluan1', 9, 8, 'down'); World.run(() => wildBattle('Tedung', 10)); });
+  await page.evaluate(() => { window.DBG = { ff: 30 }; World.load('laluan1', 9, 8, 'down'); World.run(() => wildBattle('Tedung', 10)); });
   await page.waitForTimeout(8000);
   const b = await page.evaluate(() => { const bs = Game.scenes.find(s => s instanceof BattleScene); return bs ? 'battle ok' : 'no battle'; });
   console.log(JSON.stringify(r), b);

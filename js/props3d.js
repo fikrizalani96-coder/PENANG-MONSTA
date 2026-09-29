@@ -115,7 +115,7 @@ const PR = {
     for (let i = 0; i < nf; i++) {
       const a = i / nf * 6.283 + hash(i, 1, 81) * .4, up = hash(i, 2, 81);
       g.push().ry(a).rz(.25 + (i % 2) * .22);
-      this.frond(g, 1.15 + up * .3, .17, .22 + up * .2, .88 + up * .3, PC.palm, PC.palmTip, { n: hi ? 8 : 4, teeth: hi, dark: .12 });
+      this.frond(g, .95 + up * .25, .16, .2 + up * .2, .8 + up * .25, PC.palm, PC.palmTip, { n: hi ? 8 : 4, teeth: hi, dark: .12 });
       g.pop();
     }
     // buah kelapa

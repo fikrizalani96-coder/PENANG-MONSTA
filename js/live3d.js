@@ -8,12 +8,11 @@ Object.assign(R3, {
       this.emit(x + (Math.random() - .5) * .2, y, z + (Math.random() - .5) * .2, { vx: Math.cos(a) * s, vy: (o.up || 1.6) * (.4 + Math.random()), vz: Math.sin(a) * s, life: (o.life || .6) * (.6 + Math.random() * .6), size: o.size || .09, grow: o.grow || 0, grav: o.grav === undefined ? 5 : o.grav, color, alpha: o.alpha === undefined ? 1 : o.alpha });
     }
   },
-  tuneWater(m) {
-    const w = this.waterMat(), u = w.uniforms, th = m.theme, env = this.env;
-    const P = { pantai: ['#33c4d0', '#1268b8'], air: ['#4cc0a4', '#146c92'], bandar: ['#38b8cc', '#1660b0'], malam: ['#1c3a6a', '#081840'] }[th] || ['#36bccc', '#1668b8'];
-    u.uShallow.value.set(P[0]); u.uDeep.value.set(P[1]); u.uSky.value.set(env.sky[1]); u.uSunDir.value.set(...env.dir).normalize(); u.uSunCol.value.set(env.sun[0]);
-    if (this.water) this.water.material = w;
-    this._wmFor = m;
+  tuneWaterFor(env, th) {
+    const w = this.waterMat(), u = w.uniforms;
+    const P = { pantai: ['#33c4d0', '#1268b8'], air: ['#4cc0a4', '#146c92'], bandar: ['#38b8cc', '#1660b0'], malam: ['#1c3a6a', '#081840'], senja: ['#e08a90', '#8a3a7a'] }[th] || ['#36bccc', '#1668b8'];
+    u.uShallow.value.set(P[0]); u.uDeep.value.set(P[1]); u.uSky.value.set(env.sky[1]); u.uSunDir.value.set(...(env.skyDir || env.dir)).normalize(); u.uSunCol.value.set(env.sun[0]);
+    this._wenv = env;
   },
   // ---------- kamera orbit ----------
   updateCamera(dt, px, py, pz, vx, vz) {
@@ -218,8 +217,8 @@ Object.assign(R3, {
         let ly2 = e.lookA;
         if (pd < 4.5) ly2 = Math.max(-.9, Math.min(.9, _wrapA(toP - e.ang)));
         this.poseHuman(e.g, e.spd, false, dt, ly2);
-        this.outline(e.g, dd < 16);
-        e.g.traverse(m => { if (m.isMesh && m.castShadow !== (dd < 17)) m.castShadow = dd < 17 && this.hi; });
+        this.outline(e.g, dd < 14);
+        const son = dd < 16 && this.hi; if (e.shadowOn !== son) { e.shadowOn = son; e.g.traverse(m => { if (m.isMesh) m.castShadow = son; }); }
       } else if (e.kind === 'mon') {
         e.g.position.set(ox, oy, oz); e.g.rotation.y = _wrapA(-.5 + Math.sin(t * .4 + ox) * .4); e.g.userData.update(t); this.outline(e.g, dd < 14);
       } else if (e.kind === 'ball') {
@@ -263,7 +262,7 @@ Object.assign(R3, {
     if (!this.ok || !World.map || !this.worldBuilt || this.map !== World.map) return false;
     Game.used3d = true; this.activeCam = this.cam;
     const dt = Math.min(Game.dt || .016, .08), p = World.p;
-    if (this._wmFor !== World.map) this.tuneWater(World.map);
+    if (this._wenv !== this.env) this.tuneWaterFor(this.env, World.map.theme);
     U3.uTime.value += dt; U3.uWind.value = this.cave ? .35 : 1;
     const px = p.wx, pz = p.wz, py = this.hAt(px, pz);
     U3.uPlayer.value.set(px, py, pz);

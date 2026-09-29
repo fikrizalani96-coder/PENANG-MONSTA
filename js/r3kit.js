@@ -626,6 +626,7 @@ const HOLE_FS = `
       float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(.06711056, .00583715))));
       if (kh < ign) discard;
     }
+    if (vd < 2.6) { float ign2 = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(.06711056, .00583715)))); if ((vd - 1.0) / 1.6 < ign2) discard; }
   }`;
 // Tampalan bahan dunia. o: { wind (kekuatan), bend (rumput tunduk), uvh (tinggi dari uv.y), hole (lubang pandangan), atlas (tekstur), tag }
 function worldPatch(mat, o = {}) {

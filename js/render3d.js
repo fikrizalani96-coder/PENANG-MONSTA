@@ -132,7 +132,7 @@ const R3 = {
   applyEnv(scene, L, sky, env) {
     const u = sky.material.uniforms;
     u.uTop.value.set(env.sky[0]); u.uMid.value.set(env.sky[1]); u.uBot.value.set(env.sky[2]);
-    L.dir.set(...env.dir).normalize(); u.uSunDir.value.copy(L.dir); u.uSunCol.value.set(env.sun[0]).multiplyScalar(env.glare === undefined ? .5 : env.glare);
+    L.dir.set(...env.dir).normalize(); u.uSunDir.value.set(...(env.skyDir || env.dir)).normalize(); u.uSunCol.value.set(env.sun[0]).multiplyScalar(env.glare === undefined ? .5 : env.glare);
     u.uClouds.value = env.clouds === undefined ? 1 : env.clouds; u.uStars.value = env.stars || 0; u.uSun.value = env.stars ? 0 : 1;
     scene.fog = env.fog ? new THREE.Fog(new THREE.Color(env.fog[0]), env.fog[1], env.fog[2]) : null;
     L.hemi.color.set(env.hemi[0]); L.hemi.groundColor.set(env.hemi[1]); L.hemi.intensity = env.hemi[2];
@@ -193,8 +193,9 @@ const R3 = {
   },
   disposeGroup(g) {
     g.traverse(o => {
+      if (o.isInstancedMesh) o.dispose();
       if (o.geometry && !(o.geometry.userData && o.geometry.userData.shared)) o.geometry.dispose();
-      if (o.material) for (const m of [].concat(o.material)) { if (m.userData && m.userData.keep) continue; if (m.map && !m.map.userData.keep) m.map.dispose(); if (!MAT.isShared(m)) m.dispose(); }
+      if (o.material) for (const m of [].concat(o.material)) { if (m.userData && m.userData.keep) continue; if (m.map && !m.map.userData.keep) m.map.dispose(); if (m.userData && m.userData.tex) for (const t of m.userData.tex) t.dispose(); if (!MAT.isShared(m)) m.dispose(); }
     });
   },
   // ---------- pembina entiti (model hidup) ----------

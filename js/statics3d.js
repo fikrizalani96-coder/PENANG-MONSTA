@@ -54,14 +54,22 @@ const ST = {
     }
   },
   // ---------- jisim batu (gunung ^, dinding gua x, kekosongan X) ----------
-  rockH(wx, wz, base, amp) { return base + (N2.fbm(wx * .8 + 3, wz * .8 + 7, 3) - .32) * amp + (N2.vn(wx * 3.1, wz * 3.1, 5) - .5) * amp * .18; },
+  rockH(wx, wz, base, amp, X) {
+    let h = base + (N2.fbm(wx * .8 + 3, wz * .8 + 7, 3) - .32) * amp + (N2.vn(wx * 3.1, wz * 3.1, 5) - .5) * amp * .18;
+    if (X) { // bucu di tepi jisim direndahkan supaya bucu bulat, bukan tembok rata
+      let low = false;
+      for (const dx of [-.01, .01]) for (const dz of [-.01, .01]) { const c = X.cell(Math.floor(wx + dx), Math.floor(wz + dz)); if (c !== 'x' && c !== '^' && c !== 'X') low = true; }
+      if (low) h -= amp * .55 + .12;
+    }
+    return h;
+  },
   rock(X, x, y, nb, kind) {
     const gR = X.gB || X.gR;
     const cave = kind === 'x' || X.cave || !X.outdoor, void_ = kind === 'X';
-    const base = void_ ? 1.6 : kind === 'x' ? (X.inside ? 1.25 : 1.35) : 1.05, amp = void_ ? 0 : kind === 'x' ? .75 : .6;
-    const c0 = void_ ? [.02, .02, .03] : cave ? rgb('#6a5240') : rgb('#b0a080'), c1 = void_ ? [.03, .03, .04] : cave ? rgb('#a08462') : rgb('#d8ccb0'), c2 = cave ? rgb('#d0aa78') : rgb('#f0e8d4');
-    const S = 2, H = (a, b) => this.rockH(x + a / S, y + b / S, base, amp), UV = .36;
-    const vN = (wx, wz) => { const e = .12, hx = this.rockH(wx + e, wz, base, amp) - this.rockH(wx - e, wz, base, amp), hz = this.rockH(wx, wz + e, base, amp) - this.rockH(wx, wz - e, base, amp); const l = Math.hypot(hx / (2 * e), 1, hz / (2 * e)); return [-hx / (2 * e) / l, 1 / l, -hz / (2 * e) / l]; };
+    const base = void_ ? 1.6 : kind === 'x' ? (X.inside ? 1.0 : 1.05) : 1.35, amp = void_ ? 0 : kind === 'x' ? .55 : 1.0;
+    const c0 = void_ ? [.02, .02, .03] : cave ? rgb('#7a604a') : rgb('#b0a080'), c1 = void_ ? [.03, .03, .04] : cave ? rgb('#c0a07a') : rgb('#d8ccb0'), c2 = cave ? rgb('#e6c898') : rgb('#f0e8d4');
+    const S = 2, rh = (wx, wz) => this.rockH(wx, wz, base, amp, X), H = (a, b) => rh(x + a / S, y + b / S), UV = .36;
+    const vN = (wx, wz) => { const e = .12, hx = rh(wx + e, wz) - rh(wx - e, wz), hz = rh(wx, wz + e) - rh(wx, wz - e); const l = Math.hypot(hx / (2 * e), 1, hz / (2 * e)); return [-hx / (2 * e) / l, 1 / l, -hz / (2 * e) / l]; };
     gR.push(); gR.m.identity(); gR._np(); gR.c(8);
     for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
       const ids = [];
@@ -80,7 +88,7 @@ const ST = {
       for (let r = 0; r <= rows; r++) {
         const row = [];
         for (let s = 0; s <= segs; s++) {
-          const t = s / segs, wx = x + a0 + (a1 - a0) * t, wz = y + b0 + (b1 - b0) * t, top = this.rockH(wx, wz, base, amp), f = r / rows;
+          const t = s / segs, wx = x + a0 + (a1 - a0) * t, wz = y + b0 + (b1 - b0) * t, top = rh(wx, wz), f = r / rows;
           const bulge = (N2.vn(wx * 2.3 + 5, wz * 2.3 + f * 4, 21) - .4) * .16 * Math.sin(Math.PI * f) * (void_ ? 0 : 1);
           const py = top * (1 - f);
           const col = void_ ? c0 : (() => { const k = (.6 + .4 * (1 - f) ** .8) * (.86 + N2.vn(wx * 3, py * 5, 30) * .28); return [c1[0] * k * .95, c1[1] * k * .95, c1[2] * k * .95]; })();
@@ -236,19 +244,23 @@ const ST = {
     for (const yy of [.48, .26]) g.bx(x + .5, yy, y + .5, 1, .07, .06, '#cf9e6c');
     for (let i = 0; i < 4; i++) g.bx(x + .12 + i * .25, .3, y + .5 + .04, .07, .58, .03, '#b98452', { ao: [.7, 1] });
   },
+  // profil tebing sepanjang z (0 utara → 1 selatan): naik landai di utara, jatuh curam di selatan
+  ledgeH(t) { return t < .14 ? t / .14 * .3 : t < .3 ? .3 + (t - .14) / .16 * .12 : t < .68 ? .42 + Math.sin((t - .3) / .38 * Math.PI) * .03 : t < .9 ? .42 * (1 - (t - .68) / .22) ** 1.4 : 0; },
   ledge(X, x, y, hs) {
-    const g = X.gR, S = 5;
+    const g = X.gR, S = 6, N = 12;
     for (let i = 0; i < S; i++) {
       const u0 = i / S, u1 = (i + 1) / S;
-      const prof = [[0, 0], [.1, .16], [.26, .3], [.5, .33], [.66, .3], [.8, .2], [.9, .08], [1.0, 0]];
-      for (let k = 0; k < prof.length - 1; k++) {
-        const a = prof[k], b = prof[k + 1], top = k < 5, col0 = top ? [.42, .7, .27] : [.6, .42, .24], col1 = top ? [.55, .8, .34] : [.52, .36, .2];
-        const wob = (u) => (N2.vn((x + u) * 4, y * 3 + k, 12) - .5) * .05;
-        const P = [[x + u0, a[1] + wob(u0), y + a[0]], [x + u1, a[1] + wob(u1), y + a[0]], [x + u1, b[1] + wob(u1), y + b[0]], [x + u0, b[1] + wob(u0), y + b[0]]];
-        g.quad(P[0], P[1], P[2], P[3], (k + i) % 2 ? col0 : col1, 1, [0, 1, 0]);
+      for (let k = 0; k < N; k++) {
+        const t0 = k / N, t1 = (k + 1) / N, tm = (t0 + t1) / 2, wob = u => (N2.vn((x + u) * 4, y * 3 + k, 12) - .5) * .05;
+        const top = tm > .1 && tm < .72, south = tm >= .72;
+        const gn = .85 + N2.vn((x + u0) * 5, y * 5 + k, 13) * .3;
+        const col = rgbMul(top || tm <= .1 ? '#5aa63a' : '#8a5a30', gn);
+        const P = [[x + u0, this.ledgeH(t0) + wob(u0), y + t0], [x + u1, this.ledgeH(t0) + wob(u1), y + t0], [x + u1, this.ledgeH(t1) + wob(u1), y + t1], [x + u0, this.ledgeH(t1) + wob(u0), y + t1]];
+        g.quad(P[0], P[1], P[2], P[3], col, 1, south ? [0, .4, 1] : [0, 1, 0]);
       }
     }
-    for (let i = 0; i < 3; i++) { g.push().t(x + .2 + i * .3, .3, y + .55 + hash(x, i, 40) * .1).s(1, .6, 1).sph(.08, 5, 3, '#8a8e96').pop(); }
+    // batu dan rumput di puncak
+    for (let i = 0; i < 4; i++) { const r = hash(x, i, 40); g.push().t(x + .12 + i * .25, .43, y + .35 + r * .25).s(1, .6, 1).sph(.06 + r * .04, 5, 3, '#8a8e96', { ao: [.7, 1.1] }).pop(); }
   },
   bridge(X, x, y, nb, water) { // nb: {l,r,u,d} jiran air
     const g = X.gR, gB = X.gB, alongX = !(nb.l && nb.r), h = .08;

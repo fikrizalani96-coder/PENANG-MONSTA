@@ -167,10 +167,7 @@ function fadeTo(v, speed = 4) {
   return new Promise(r => { Game.fadeTarget = v; Game.fadeSpeed = speed; Game.fadeRes = r; });
 }
 let _last = 0;
-function frame(ts) {
-  const dt = Math.min(0.05, (ts - _last) / 1000 || 0.016);
-  _last = ts; Game.t += dt; Game.dt = dt;
-  Input.tick(dt);
+function step(dt) {
   for (let i = Game.timers.length - 1; i >= 0; i--) {
     const tm = Game.timers[i]; tm.t -= dt;
     if (tm.t <= 0) { Game.timers.splice(i, 1); tm.r(); }
@@ -184,6 +181,14 @@ function frame(ts) {
   if (top && top.update) {
     try { top.update(dt); } catch (e) { console.error(e); }
   }
+}
+function frame(ts) {
+  const dt = Math.min(0.05, (ts - _last) / 1000 || 0.016);
+  _last = ts; Game.t += dt; Game.dt = dt;
+  Input.tick(dt);
+  step(dt);
+  // ujian pada GPU perisian yang perlahan: DBG.ff = bilangan langkah logik tambahan bagi setiap lukisan
+  for (let k = 1, ff = (window.DBG && window.DBG.ff) | 0; k < ff; k++) { Game.t += dt; step(dt); }
   let s = Game.scenes.length - 1;
   while (s > 0 && Game.scenes[s].transparent) s--;
   ctx.setTransform(UIK, 0, 0, UIK, 0, 0);
