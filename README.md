@@ -6,7 +6,7 @@ Permainan RPG pengembaraan Monsta berasaskan pelayar web, dengan jalan cerita da
 
 ## Versi 2.0: Jejak Sejarah
 
-- **Grafik 3D gaya diorama** (Three.js): tanah bertekstur yang dilukis, rumpun rumput, bunga dan pokok bulat, watak chibi bermuka dengan rambut, tudung dan topi, 123 model Monsta 3D gaya kartun (bayang sel, garis luar, mata anime yang berkelip, sayap dan api beranimasi), rumah kampung bertiang dan bumbung genting, cahaya matahari hangat dengan bayang lembut. Arena pertarungan padang rumput dengan panel krim klasik. Pilihan grafik: 3D Tinggi / 3D Rendah / 2D Klasik (diturunkan secara automatik pada peranti perlahan; beralih ke 2D jika WebGL tiada).
+- **Permainan 3D sebenar (Three.js)**: pergerakan bebas analog (papan kekunci / kayu bedik) dengan perlanggaran bulatan, kamera orbit (seret / roda tetikus / Q, E, C), rupa bumi berketinggian dengan tasik dan pantai sebenar, ombak air berbayang, langit dan awan, bayang lembut. Semua aset ialah jaringan 3D sebenar (bukan sprite): pokok hujan, kelapa, bakau, semak berduri, batu; rumah kampung bertiang, klinik, rumah kedai Pulau Pinang, dewan gim, menara, gudang, rumah agam; perabot dalaman; 123 Monsta dan watak chibi beranimasi (berjalan, berlari, menoleh); Monsta pengikut. Pertarungan, skrin tajuk dan pameran juga dibina daripada aset sama. Dioptimumkan: satu laluan render tanpa pasca-proses, instancing dengan LOD dan pemotongan frustum setiap contoh, resolusi dinamik, `?stats` untuk memantau. Pilihan grafik: 3D Tinggi / 3D Rendah / 2D Klasik.
 - **Mudah alih & web**: potret **9:16** di telefon (joystick + butang A/B) dan landskap **16:9** di komputer.
 - **Log masuk Google**: simpanan awan (Supabase) untuk main di mana-mana peranti.
 - **Cerita lebih panjang, 13 bab**, dengan **sejarah Malaysia**:
@@ -75,7 +75,14 @@ index.html, style.css
 js/config.js     tetapan pelancaran (Supabase, AdSense)
 js/engine.js     kanvas responsif 9:16 / 16:9, input sentuh, dialog, bunyi & muzik
 js/models3d.js   model 3D kartun: Monsta (ikut bentuk badan & ciri) dan watak chibi
-js/render3d.js   pemapar 3D (Three.js): dunia, pertarungan, pameran Monsta
+js/r3kit.js      perkakas 3D: pembina jaringan GB, tekstur prosedur, tampalan shader, bahan
+js/props3d.js    aset tumbuhan, batu, hiasan
+js/bld3d.js      bangunan bergaya Malaysia
+js/statics3d.js  dinding, perabot dalaman, batu gunung/gua, tebing, jambatan
+js/render3d.js   teras enjin 3D: cahaya, langit, zarah, resolusi dinamik
+js/world3d.js    rupa bumi, air, instancing dunia
+js/live3d.js     kamera orbit, watak hidup, NPC, Monsta pengikut
+js/scenes3d.js   arena pertarungan, skrin tajuk, pameran
 js/gfx.js        jubin, bangunan, watak, penjana sprite Monsta
 js/data.js       jenis, jurus, 123 Monsta, barang, lencana
 js/monsta.js     statistik, EXP, jurus, evolusi
@@ -99,4 +106,6 @@ node tools/validate.js       # semak peta, pintu, sambungan, serpihan & harga pr
 node tools/playthrough.js    # main automatik dari awal hingga Juara & Lorong Masa (perlukan Playwright)
 node tools/shot3d.js era6 10 11 390 844   # tangkapan skrin 3D
 node tools/smoke3d.js                     # ujian asap 3D: semua model, peta & pertarungan
+node tools/free3d.js                      # pergerakan bebas + kamera orbit dalam 3D
+node tools/free2d.js                      # pergerakan bebas mod 2D
 ```
