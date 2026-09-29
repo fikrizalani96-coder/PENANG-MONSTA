@@ -33,9 +33,15 @@ const TOWN_ORDER = ['penaga', 'guarperahu', 'telukayertawar', 'kepalabatas', 'be
 let TOWNS = [];
 
 const World = {
-  scene: null, map: null, grid: null, objs: [], busy: false, ctx: null, banner: null,
-  p: { x: 0, y: 0, dir: 'down', px: 0, py: 0, moving: null, frame: 0, anim: 0 },
-  turnWait: 0, bumpT: 0,
+  scene: null, map: null, grid: null, objs: [], busy: false, ctx: null, banner: null, fol: null, hint: null,
+  // Pemain bergerak bebas: (wx, wz) ialah kedudukan sebenar dalam unit jubin (pusat jubin = i + .5).
+  // x/y = jubin semasa; px/py = koordinat piksel untuk mod 2D; ang = arah hadap (0 = ke bawah skrin).
+  p: {
+    x: 0, y: 0, _dir: 'down', ang: 0, wx: .5, wz: .5, px: 0, py: 0, vx: 0, vz: 0, moving: null, frame: 0, anim: 0,
+    walk: 0, speed: 0, jump: 0, jumpY: 0, stepAcc: 0, lastTx: -1, lastTz: -1, stuck: 0,
+    get dir() { return this._dir; }, set dir(v) { this._dir = v; this.ang = angOfDir(v); }
+  },
+  bumpT: 0, edgeCd: 0,
 
   init() {
     for (const id in MAPS) { MAPS[id].id = id; prepMap(MAPS[id]); }
@@ -43,14 +49,34 @@ const World = {
     this.scene = { update: dt => this.update(dt), draw: () => this.draw() };
   },
   // ---------- muat peta ----------
-  load(id, x, y, dir, door) {
+  // at = { wx, wz } untuk kedudukan tepat (contoh: melintasi sempadan peta); jika tiada, pemain di pusat jubin (x, y)
+  load(id, x, y, dir, door, at) {
     const m = MAPS[id]; if (!m) { console.error('Peta tiada', id); return; }
     this.map = m;
     this.ctx = door || null;
     this.grid = m.base.map(r => r.slice());
     this.W = m.W; this.H = m.H;
-    const [c, g] = mkCanvas(m.W * 16, m.H * 16);
+    this._c2d = false; // kanvas 2D dibina hanya jika diperlukan (mod 2D / alat)
     if (R3.ok) { R3.buildWorld(m, this.grid); R3.snap = true; }
+    const p = this.p;
+    p.wx = at ? at.wx : x + .5; p.wz = at ? at.wz : y + .5;
+    p.dir = dir || 'down';
+    p.vx = p.vz = p.speed = 0; p.moving = null; p.jump = p.jumpY = 0; p.stepAcc = 0; p.stuck = 0; p.frame = 0;
+    this.syncPos(); p.lastTx = p.x; p.lastTz = p.y;
+    this.edgeCd = .6;
+    if (!m.outdoor) S.bike = false;
+    if (S.surf && !isWater(this.tile(p.x, p.y))) S.surf = false;
+    this.loadObjs();
+    S.map = id; S.x = p.x; S.y = p.y;
+    if (m.fly) { S.visited[id] = 1; S.lastTown = id; }
+    this.resetFollower();
+    this.music();
+  },
+  // kanvas peta 2D (hanya untuk mod 2D klasik dan alat pembangun)
+  ensure2d() {
+    if (this._c2d) return;
+    const m = this.map;
+    const [c, g] = mkCanvas(m.W * 16, m.H * 16);
     for (let yy = 0; yy < m.H; yy++) for (let xx = 0; xx < m.W; xx++) {
       const ch = this.grid[yy][xx];
       if (/\d/.test(ch) || BUILD.has(ch)) drawTile(g, m.outdoor ? (m.under || '.') : (m.under || '_'), xx * 16, yy * 16, xx, yy, m.tileTheme);
@@ -66,18 +92,15 @@ const World = {
         drawWarpTile(g, look, xx * 16, yy * 16, above);
       }
     }
-    this.canvas = c; this.g = g;
+    this._canvas = c; this._g = g;
     const [bc, bg] = mkCanvas(16, 16);
     drawTile(bg, m.border || (m.outdoor ? 'T' : 'X'), 0, 0, 0, 0, m.tileTheme);
     this.borderPat = ctx.createPattern(bc, 'repeat');
-    this.p.x = x; this.p.y = y; this.p.dir = dir || 'down'; this.p.px = x * 16; this.p.py = y * 16; this.p.moving = null;
-    if (!m.outdoor) S.bike = false;
-    if (S.surf && !isWater(this.grid[y][x])) S.surf = false;
-    this.loadObjs();
-    S.map = id; S.x = x; S.y = y;
-    if (m.fly) { S.visited[id] = 1; S.lastTown = id; }
-    this.music();
+    this._c2d = true;
   },
+  get canvas() { this.ensure2d(); return this._canvas; },
+  get g() { this.ensure2d(); return this._g; },
+  syncPos() { const p = this.p; p.px = (p.wx - .5) * 16; p.py = (p.wz - .5) * 16; p.x = Math.floor(p.wx); p.y = Math.floor(p.wz); },
   music() {
     const m = this.map; if (!m) return;
     if (S.bike && m.outdoor) { Snd.music('laluan'); return; }
@@ -98,7 +121,7 @@ const World = {
   mkObj(d, mk) {
     return {
       def: d, key: mk.ch, x: mk.x, y: mk.y, hx: mk.x, hy: mk.y, px: mk.x * 16, py: mk.y * 16, dir: d.d || 'down', moving: null, t: 1 + Math.random() * 3,
-      block: !(d.trig || d.hid), frame: 0, auto: this.autoMove(d, mk)
+      block: !(d.trig || d.hid), frame: 0, auto: this.autoMove(d, mk), lookT: 0
     };
   },
   // Penduduk biasa (dialog sahaja, bukan penghalang cerita) bergerak/berpaling supaya dunia terasa hidup
@@ -126,7 +149,15 @@ const World = {
   },
   // ---------- pertanyaan jubin ----------
   tile(x, y) { if (x < 0 || y < 0 || x >= this.W || y >= this.H) return null; return this.grid[y][x]; },
+  // jubin dengan sempadan peta di luar had (untuk perlanggaran)
+  tileAt(x, y) { if (x < 0 || y < 0 || x >= this.W || y >= this.H) return this.map.border || (this.map.outdoor ? 'T' : 'X'); return this.grid[y][x]; },
   objAt(x, y, blockingOnly) { return this.objs.find(o => o.x === x && o.y === y && (!blockingOnly || o.block)) || this.objs.find(o => o.moving && o.moving.tx === x && o.moving.ty === y && (!blockingOnly || o.block)); },
+  // objek dalam jejari r dari titik (x, z) dunia
+  objNear(x, z, r) {
+    let best = null, bd = r;
+    for (const o of this.objs) { const d = Math.hypot(o.px / 16 + .5 - x, o.py / 16 + .5 - z); if (d < bd) { bd = d; best = o; } }
+    return best;
+  },
   passable(x, y, surf) {
     const t = this.tile(x, y); if (t === null) return false;
     if (this.objAt(x, y, true)) return false;
@@ -136,25 +167,129 @@ const World = {
   setTile(x, y, ch) {
     if (this.grid[y][x] === 't' && R3.ok) R3.cutBush(x, y);
     this.grid[y][x] = ch;
-    drawTile(this.g, ch, x * 16, y * 16, x, y, this.map.tileTheme);
+    if (this._c2d) drawTile(this._g, ch, x * 16, y * 16, x, y, this.map.tileTheme);
+  },
+  // ---------- perlanggaran (bulatan pemain vs jubin pepejal dan objek) ----------
+  // Segi empat pepejal [x0, z0, x1, z1] bagi jubin (i, j) atau null jika boleh dilalui
+  solidRect(i, j) {
+    const r = this._r || (this._r = [0, 0, 0, 0]), W = this.W, H = this.H;
+    if (i < 0 || j < 0 || i >= W || j >= H) {
+      const inX = i >= 0 && i < W, inY = j >= 0 && j < H, conn = this.map.conn;
+      if ((inX || inY) && conn && conn[j < 0 ? 'n' : j >= H ? 's' : i < 0 ? 'w' : 'e']) return null; // pintu sempadan ke peta jiran
+      r[0] = i; r[1] = j; r[2] = i + 1; r[3] = j + 1; return r;
+    }
+    const t = this.grid[j][i];
+    let m = 0;                                    // sisipan ke dalam jubin
+    if (t === 'L') m = 0;                         // tebing: pepejal kecuali lompat dari utara
+    else if (WALK.has(t) || (t >= '0' && t <= '9')) return null;
+    else if (t === '~' || t === 'w') { if (S.surf) return null; }
+    else if (t === 'T' || t === 'Y' || t === 'r') m = .1;
+    else if (t === 't' || t === 'F') m = .06;
+    else if (t === 'o') m = .2;
+    else if (t === 'g') m = .08;
+    r[0] = i + m; r[1] = j + m; r[2] = i + 1 - m; r[3] = j + 1 - m; return r;
+  },
+  // Selesaikan perlanggaran bulatan (jejari R) di (nx, nz); hasil dalam this._cx/_cz, this._hit
+  collide(nx, nz) {
+    const R = .3; let x = nx, z = nz, hit = false;
+    for (let it = 0; it < 3; it++) {
+      let pushed = false;
+      const i0 = Math.floor(x - R), i1 = Math.floor(x + R), j0 = Math.floor(z - R), j1 = Math.floor(z + R);
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+        const r = this.solidRect(i, j); if (!r) continue;
+        const cx = Math.max(r[0], Math.min(x, r[2])), cz = Math.max(r[1], Math.min(z, r[3]));
+        const dx = x - cx, dz = z - cz, d2 = dx * dx + dz * dz;
+        if (d2 >= R * R) continue;
+        if (d2 > 1e-8) { const d = Math.sqrt(d2), k = (R - d) / d; x += dx * k; z += dz * k; }
+        else { // pusat di dalam segi empat: tolak ikut paksi paling dekat
+          const l = x - r[0], rt = r[2] - x, tp = z - r[1], bt = r[3] - z, mn = Math.min(l, rt, tp, bt);
+          if (mn === l) x = r[0] - R; else if (mn === rt) x = r[2] + R; else if (mn === tp) z = r[1] - R; else z = r[3] + R;
+        }
+        pushed = hit = true;
+      }
+      for (const o of this.objs) {
+        if (!o.block) continue;
+        const rr = R + (o.def.sign || o.def.frag || o.def.ball || o.def.item ? .2 : .3);
+        const dx = x - (o.px / 16 + .5), dz = z - (o.py / 16 + .5), d2 = dx * dx + dz * dz;
+        if (d2 < rr * rr && d2 > 1e-8) { const d = Math.sqrt(d2), k = (rr - d) / d; x += dx * k; z += dz * k; pushed = hit = true; }
+      }
+      if (!pushed) break;
+    }
+    this._cx = x; this._cz = z; this._hit = hit;
   },
   // ---------- kemas kini ----------
   update(dt) {
+    if (!this.map) return;
     S.time += dt;
     this.updateObjs(dt);
     if (this.banner) { this.banner.t -= dt; if (this.banner.t <= 0) this.banner = null; }
     if (window.Monet) Monet.tick(dt);
     const p = this.p;
-    if (p.moving) { this.stepAnim(dt); return; }
-    if (this.busy) return;
-    if (Input.pressed.start) { this.run(() => Menus.start()); return; }
-    if (Input.pressed.a) { this.run(() => this.interact()); return; }
-    const d = Input.dir();
-    if (!d) { this.turnWait = 0; p.frame = 0; return; }
-    if (d !== p.dir) { p.dir = d; this.turnWait = .09; return; }
-    if (this.turnWait > 0) { this.turnWait -= dt; return; }
-    this.tryMove(d);
+    if (this.edgeCd > 0) this.edgeCd -= dt;
+    if (this.bumpT > 0) this.bumpT -= dt;
+    this.hint = null;
+    if (p.moving) this.stepAnim(dt);
+    else if (this.busy) { p.vx = p.vz = 0; p.speed = 0; p.frame = 0; }
+    else {
+      if (Input.pressed.start) this.run(() => Menus.start());
+      else if (Input.pressed.a) this.run(() => this.interact());
+      else { this.freeMove(dt); if (!this.busy) this.hint = this.interactTarget(); }
+    }
+    this.updateFollower(dt);
   },
+  // Pergerakan bebas: arah relatif kamera, pecutan licin, perlanggaran dan acara jubin
+  freeMove(dt) {
+    const p = this.p, A = Input.axis;
+    const mag = Math.min(1, Math.hypot(A.x, A.y));
+    let ux = 0, uz = 0, m = 0;
+    if (mag > .1) {
+      const yaw = R3.ok ? R3.camYaw : 0, sn = Math.sin(yaw), cs = Math.cos(yaw);
+      ux = (A.x * cs + A.y * sn) / mag; uz = (-A.x * sn + A.y * cs) / mag; // kanan skrin = (cos, -sin), atas skrin = (-sin, -cos)
+      m = Input.analog ? clamp((mag - .1) / .8, .25, 1) : 1;
+    }
+    const run = S.bike || Input.held.b || (Input.analog && mag > .93);
+    const walkV = 4, runV = S.bike ? 8.6 : 6.6;
+    const vmax = S.surf ? 5 : run ? runV : walkV;
+    const tvx = ux * m * vmax, tvz = uz * m * vmax;
+    const k = 1 - Math.exp(-dt * (m > 0 ? 13 : 24));
+    p.vx += (tvx - p.vx) * k; p.vz += (tvz - p.vz) * k;
+    let sp = Math.hypot(p.vx, p.vz);
+    if (sp < .05 && m === 0) { p.vx = p.vz = 0; sp = 0; }
+    // keluar melalui tikar apabila menekan ke bawah
+    if (this.tile(p.x, p.y) === 'E' && !this.map.noExit && A.y > .6 && Math.abs(A.x) < .7) { this.run(() => this.exitBuilding()); return; }
+    if (sp > 0) {
+      const ox = p.wx, oz = p.wz;
+      let nx = ox + p.vx * dt, nz = oz + p.vz * dt;
+      // lompat tebing (jubin L) hanya dari utara ke selatan
+      if (!S.surf && p.vz > .8) {
+        const ci = Math.floor(nx), cj = Math.floor(nz + .32); // tepi depan pemain menyentuh tebing
+        if (this.tile(ci, cj) === 'L' && p.y === cj - 1 && Math.abs(p.vx) < p.vz) {
+          if (this.passable(ci, cj + 1)) { p.dir = 'down'; this.startMove(ci, cj + 1, true); return; }
+        }
+      }
+      this.collide(nx, nz);
+      p.wx = this._cx; p.wz = this._cz;
+      const moved = Math.hypot(p.wx - ox, p.wz - oz);
+      // hentakan ke dinding
+      if (this._hit && moved < sp * dt * .35 && m > 0) { p.stuck += dt; if (p.stuck > .25 && this.bumpT <= 0) { Snd.sfx('bump'); this.bumpT = .6; } } else p.stuck = 0;
+      p.speed = moved / Math.max(dt, 1e-4);
+      p.walk += moved * 2.6;
+      if (sp > .4) p._dir = dirOfAng(p.ang = angLerp(p.ang, Math.atan2(p.vx, p.vz), 1 - Math.exp(-dt * 16)));
+      p.frame = p.speed > .6 ? (Math.floor(p.walk) % 2 ? 1 : 2) : 0;
+      this.syncPos();
+      if (this.checkEdge()) return;
+      this.tileEvents(moved);
+    } else { p.speed = 0; p.frame = 0; }
+  },
+  checkEdge() {
+    const p = this.p, conn = this.map.conn;
+    if (this.edgeCd > 0 || !conn) return false;
+    const key = p.wz < 0 ? 'n' : p.wz >= this.H ? 's' : p.wx < 0 ? 'w' : p.wx >= this.W ? 'e' : null;
+    if (!key || !conn[key]) return false;
+    this.run(() => this.edgeWarp(key, conn[key]));
+    return true;
+  },
+  // Langkah satu jubin (untuk skrip cerita, ujian dan tebing); pergerakan bebas menggunakan freeMove
   tryMove(d) {
     const p = this.p, [dx, dy] = DIRS[d], nx = p.x + dx, ny = p.y + dy;
     const cur = this.tile(p.x, p.y);
@@ -186,34 +321,41 @@ const World = {
     this.p.frame = 0;
     if (this.bumpT <= 0) { Snd.sfx('bump'); this.bumpT = .35; }
   },
+  // Gerakan berskrip ke pusat jubin (tx, ty): dari kedudukan semasa; jump = lompat tebing
   startMove(tx, ty, jump) {
     const p = this.p;
-    const fast = (S.bike || (Input.held.b && !S.surf)) ? 2 : 1;
-    p.moving = { fx: p.x, fy: p.y, tx, ty, t: 0, dur: (jump ? .4 : .24) / fast, jump };
-    p.anim = (p.anim + 1) % 4;
+    const dx = tx + .5 - p.wx, dz = ty + .5 - p.wz, dist = Math.hypot(dx, dz);
+    const spd = jump ? 3.4 : S.bike ? 8.4 : Input.held.b ? 6.4 : 4.2;
+    p.moving = { fx: p.wx, fz: p.wz, tx: tx + .5, tz: ty + .5, t: 0, dur: Math.max(.06, dist / spd), jump: !!jump, dist };
+    p.vx = dx / p.moving.dur; p.vz = dz / p.moving.dur;
     if (jump) Snd.sfx('move');
   },
   stepAnim(dt) {
     const p = this.p, mv = p.moving;
     mv.t += dt / mv.dur;
+    const t = Math.min(1, mv.t), ox = p.wx, oz = p.wz;
+    p.wx = mv.fx + (mv.tx - mv.fx) * t; p.wz = mv.fz + (mv.tz - mv.fz) * t;
+    p.jump = mv.jump ? Math.sin(t * Math.PI) * .85 : 0; p.jumpY = -p.jump * 16;
+    const moved = Math.hypot(p.wx - ox, p.wz - oz);
+    p.speed = moved / Math.max(dt, 1e-4); p.walk += moved * 2.6;
+    p.frame = t < 1 ? (Math.floor(p.walk) % 2 ? 1 : 2) : 0;
+    this.syncPos();
     if (mv.t >= 1) {
-      p.x = mv.tx; p.y = mv.ty; p.px = p.x * 16; p.py = p.y * 16; p.moving = null; p.jumpY = 0;
-      this.onStep();
-      return;
+      p.moving = null; p.jump = p.jumpY = 0; p.speed = 0; p.vx = p.vz = 0; p.frame = 0;
+      this.tileEvents(mv.dist);
     }
-    p.px = (mv.fx + (mv.tx - mv.fx) * mv.t) * 16; p.py = (mv.fy + (mv.ty - mv.fy) * mv.t) * 16;
-    p.jumpY = mv.jump ? -Math.sin(mv.t * Math.PI) * 8 : 0;
-    p.frame = mv.t < .5 ? (p.anim % 2 ? 1 : 2) : 0;
   },
-  onStep() {
+  // Acara selepas bergerak: masuk jubin baharu, dan setiap 1 unit jarak = 1 "langkah" (ubat nyamuk, racun, pertemuan liar)
+  tileEvents(dist) {
+    const p = this.p;
+    p.stepAcc += dist;
+    if (p.x !== p.lastTx || p.y !== p.lastTz) { p.lastTx = p.x; p.lastTz = p.y; S.x = p.x; S.y = p.y; this.bumpT = 0; this.onTileEnter(); }
+    while (p.stepAcc >= 1 && !this.busy) { p.stepAcc -= 1; this.onStepUnit(); }
+  },
+  onTileEnter() {
     const p = this.p, t = this.tile(p.x, p.y);
-    S.x = p.x; S.y = p.y; S.steps++;
-    if (this.bumpT > 0) this.bumpT = 0;
-    if (S.repel > 0) {
-      S.repel--;
-      if (S.repel === 0) { this.run(() => UI.say('Kesan ubat nyamuk sudah habis.')); return; }
-    }
-    if (S.steps % 256 === 0) { for (const m of S.party) if (m.status === 'racun' && m.hp > 1) m.hp--; }
+    if (t === null) return;
+    if (S.surf && !isWater(t)) { S.surf = false; this.music(); }
     if (/\d/.test(t)) {
       const d = (this.map.doors || {})[t];
       if (d && d.lock && d.lock()) {
@@ -227,10 +369,21 @@ const World = {
     if (trig) { this.run(() => trig.def.trig(trig)); return; }
     const tr = this.checkTrainers();
     if (tr) { this.run(() => this.trainerSpot(tr)); return; }
+  },
+  onStepUnit() {
+    const p = this.p, t = this.tile(p.x, p.y);
+    if (t === null) return;
+    S.steps++;
+    if (S.repel > 0) {
+      S.repel--;
+      if (S.repel === 0) { this.run(() => UI.say('Kesan ubat nyamuk sudah habis.')); return; }
+    }
+    if (S.steps % 256 === 0) { for (const m of S.party) if (m.status === 'racun' && m.hp > 1) m.hp--; }
     this.checkEncounter(t);
   },
   updateObjs(dt) {
     for (const o of this.objs) {
+      if (o.lookT > 0) o.lookT -= dt;
       if (o.moving) {
         const mv = o.moving; mv.t += dt / mv.dur;
         if (mv.t >= 1) { o.x = mv.tx; o.y = mv.ty; o.px = o.x * 16; o.py = o.y * 16; o.moving = null; o.frame = 0; if (mv.res) mv.res(); }
@@ -250,12 +403,40 @@ const World = {
         o.dir = d;
         const nx = o.x + dx, ny = o.y + dy, p = this.p;
         const rad = o.def.move ? 2 : 1; if (Math.abs(nx - o.hx) > rad || Math.abs(ny - o.hy) > rad) continue;
-        if (!this.passable(nx, ny) || (nx === p.x && ny === p.y) || (p.moving && nx === p.moving.tx && ny === p.moving.ty)) continue;
+        if (!this.passable(nx, ny) || Math.hypot(nx + .5 - p.wx, ny + .5 - p.wz) < 1.2 || (p.moving && nx === Math.floor(p.moving.tx) && ny === Math.floor(p.moving.tz))) continue;
         const tl = this.tile(nx, ny); if (/\d/.test(tl) || tl === 'E' || tl === ',' || tl === 'L' || isWater(tl)) continue;
         if (this.objs.some(q => q.def.trig && q.x === nx && q.y === ny)) continue;
         o.moving = { fx: o.x, fy: o.y, tx: nx, ty: ny, t: 0, dur: .3, alt: Math.random() < .5 };
       }
     }
+  },
+  // ---------- Monsta pengikut (ketua kumpulan berjalan di belakang pemain) ----------
+  followerMon() { if (S.surf || S.bike || !S.party || !S.party.length) return null; return S.party.find(alive) || null; },
+  resetFollower() {
+    const p = this.p, fx = Math.sin(p.ang), fz = Math.cos(p.ang);
+    let x = p.wx, z = p.wz;
+    for (const k of [1.1, .8, .5]) { const cx = p.wx - fx * k, cz = p.wz - fz * k, t = this.tileAt(Math.floor(cx), Math.floor(cz)); if (isWalkTile(t) && t !== 'L') { x = cx; z = cz; break; } }
+    this.fol = { x, z, ang: p.ang, speed: 0, walk: 0, trail: [{ x, z }, { x: p.wx, z: p.wz }], idle: 0 };
+  },
+  updateFollower(dt) {
+    const f = this.fol, p = this.p; if (!f || !R3.ok) return;
+    const tr = f.trail, last = tr[tr.length - 1];
+    if (Math.hypot(p.wx - last.x, p.wz - last.z) > .18) { tr.push({ x: p.wx, z: p.wz }); if (tr.length > 48) tr.shift(); }
+    // sasaran: titik 1.15 unit di belakang pemain sepanjang jejak
+    let need = 1.15, cx = p.wx, cz = p.wz, tx = p.wx, tz = p.wz;
+    for (let i = tr.length - 1; i >= 0 && need > 0; i--) {
+      const q = tr[i], d = Math.hypot(q.x - cx, q.z - cz);
+      if (d >= need) { const r = need / d; tx = cx + (q.x - cx) * r; tz = cz + (q.z - cz) * r; need = 0; }
+      else { need -= d; cx = q.x; cz = q.z; tx = cx; tz = cz; }
+    }
+    // ofset ke sisi supaya Monsta kelihatan dari kamera di belakang pemain (hanya jika jubin itu boleh dilalui)
+    { const ox = tx + Math.cos(p.ang) * .42, oz = tz - Math.sin(p.ang) * .42, t = this.tileAt(Math.floor(ox), Math.floor(oz)); if (t !== null && isWalkTile(t) && t !== 'L') { tx = ox; tz = oz; } }
+    const dx = tx - f.x, dz = tz - f.z, dist = Math.hypot(dx, dz);
+    if (dist > 4.5) { f.x = tx; f.z = tz; f.speed = 0; return; }
+    const sp = Math.min(dist * 7, 9.5);
+    if (dist > .04) { const st = Math.min(dist, sp * dt); f.x += dx / dist * st; f.z += dz / dist * st; f.speed = st / Math.max(dt, 1e-4); f.ang = angLerp(f.ang, Math.atan2(dx, dz), 1 - Math.exp(-dt * 10)); f.idle = 0; }
+    else { f.speed = 0; f.idle += dt; f.ang = angLerp(f.ang, Math.atan2(p.wx - f.x, p.wz - f.z), 1 - Math.exp(-dt * 3)); }
+    f.walk += f.speed * dt * 2.4;
   },
   // ---------- skrip ----------
   async run(fn) {
@@ -268,16 +449,41 @@ const World = {
       if (window.Sejarah && Game.top() === this.scene && Sejarah.pendingChapter()) setTimeout(() => this.run(() => Sejarah.chapterCheck()), 50);
     }
   },
+  // Sasaran A: objek terdekat di hadapan pemain, atau jubin khas (semak, air, komputer...)
+  interactTarget() {
+    const p = this.p, fx = Math.sin(p.ang), fz = Math.cos(p.ang);
+    let best = null, bs = 1e9;
+    for (const o of this.objs) {
+      const d = o.def; if (d.trig) continue;
+      const dx = o.px / 16 + .5 - p.wx, dz = o.py / 16 + .5 - p.wz, dist = Math.hypot(dx, dz);
+      if (dist > (d.hid ? 1.1 : 1.5)) continue;
+      const cs = dist > 1e-3 ? (dx * fx + dz * fz) / dist : 1;
+      if (dist > .8 ? cs < .5 : cs < -.2) continue;
+      const sc = dist + (1 - cs) * .9;
+      if (sc < bs) { bs = sc; best = o; }
+    }
+    if (best) return { o: best };
+    for (const k of [.8, 1.25]) {
+      const tx = Math.floor(p.wx + fx * k), tz = Math.floor(p.wz + fz * k), t = this.tile(tx, tz);
+      if (t === null) continue;
+      if (t === 'C') { // kaunter: cari orang di belakangnya
+        for (const k2 of [1.6, 2.1]) { const o2 = this.objNear(p.wx + fx * k2, p.wz + fz * k2, .55); if (o2 && !o2.def.trig) return { o: o2 }; }
+        continue;
+      }
+      if (t === 't' || (isWater(t) && !S.surf) || 'nQhmg'.includes(t)) return { t, x: tx, y: tz };
+      if (!isWalkTile(t)) break;
+    }
+    return null;
+  },
+  faceToward(x, z) { const p = this.p; const dx = x - p.wx, dz = z - p.wz; if (Math.hypot(dx, dz) > .05) { p.ang = Math.atan2(dx, dz); p._dir = dirOfAng(p.ang); } },
   async interact() {
-    const p = this.p, [dx, dy] = DIRS[p.dir];
-    let fx = p.x + dx, fy = p.y + dy;
-    let o = this.objAt(fx, fy);
-    const t = this.tile(fx, fy);
-    if (!o && t === 'C') { o = this.objAt(fx + dx, fy + dy); }
-    if (o && o.def.trig) o = null;
-    if (o) { await this.talk(o); return; }
-    if (t === 't') { await this.tryCut(fx, fy); return; }
-    if (isWater(t) && !S.surf) { await this.trySurf(fx, fy); return; }
+    const T = this.interactTarget();
+    if (!T) return;
+    if (T.o) { this.faceToward(T.o.px / 16 + .5, T.o.py / 16 + .5); await this.talk(T.o); return; }
+    const { t, x, y } = T;
+    this.faceToward(x + .5, y + .5);
+    if (t === 't') { await this.tryCut(x, y); return; }
+    if (isWater(t) && !S.surf) { await this.trySurf(x, y); return; }
     if (t === 'n') {
       if (this.map.vending) { await UI.say('Mesin layan diri. Minuman sejuk!'); await Menus.shop(this.map.vending, true); return; }
       if (this.map.pc) await Menus.pc(); else await UI.say('Komputer ini sedang memaparkan berita tentang Monsta.'); return;
@@ -287,6 +493,8 @@ const World = {
     if (t === 'm') { await UI.say('Mesin ini berdengung perlahan.'); return; }
     if (t === 'g') { await UI.say(this.map.statue || 'Patung gim. Nama jurulatih yang menang terukir di sini.'); return; }
   },
+  // arah 4-penjuru dari objek ke pemain
+  dirToPlayer(o) { const p = this.p; return dirOfAng(Math.atan2(p.wx - (o.px / 16 + .5), p.wz - (o.py / 16 + .5))); },
   async talk(o) {
     const d = o.def;
     if (d.frag) { await Sejarah.collect(d.frag); return; }
@@ -306,7 +514,7 @@ const World = {
       S.flags[this.itemFlag({ ch: o.key, x: o.hx, y: o.hy })] = 1;
       return;
     }
-    if (!d.noturn && o.dir !== undefined && !d.mon) o.dir = OPP[this.p.dir];
+    if (!d.noturn && o.dir !== undefined && !d.mon) { o.dir = this.dirToPlayer(o); o.lookT = 6; }
     if (d.run) { await d.run(o); return; }
     if (d.tr && !S.flags[this.trFlag(o)]) { await this.trainerFight(o); return; }
     if (d.tr && d.tr.after) { await UI.say(d.tr.after); return; }
@@ -330,7 +538,7 @@ const World = {
     Snd.sfx('alert'); o.bang = true;
     await wait(.7); o.bang = false;
     await approach(o);
-    this.p.dir = dirTo(this.p, o);
+    this.p.dir = dirTo(this.p, o); o.lookT = 6;
     await this.trainerFight(o);
   },
   async trainerFight(o) {
@@ -354,10 +562,10 @@ const World = {
     this.run(() => wildBattle(row[0], lv, this.map.ghostEnc ? { ghost: true } : {}));
   },
   // ---------- perpindahan ----------
-  async go(id, x, y, dir, door, noFade) {
+  async go(id, x, y, dir, door, noFade, at) {
     if (!noFade) await fadeTo(1, 6);
     const prevName = this.map && this.map.name;
-    this.load(id, x, y, dir, door);
+    this.load(id, x, y, dir, door, at);
     if (this.map.name && this.map.name !== prevName && this.map.outdoor) this.banner = { t: 2.2, s: this.map.name };
     if (!noFade) await fadeTo(0, 6);
     if (this.map.enter) await this.map.enter();
@@ -385,12 +593,12 @@ const World = {
     const B = MAPS[id]; if (!B) { console.error('sambungan tiada', id); return; }
     const p = this.p;
     const o = off !== null ? off : edgeOffset(this.map, B, key);
-    let x, y, dir;
-    if (key === 'n') { x = p.x + o; y = B.H - 1; dir = 'up'; }
-    if (key === 's') { x = p.x + o; y = 0; dir = 'down'; }
-    if (key === 'w') { x = B.W - 1; y = p.y + o; dir = 'left'; }
-    if (key === 'e') { x = 0; y = p.y + o; dir = 'right'; }
-    await this.go(id, x, y, dir, null, false);
+    let wx, wz, dir;
+    if (key === 'n') { wx = p.wx + o; wz = B.H - .14; dir = 'up'; }
+    if (key === 's') { wx = p.wx + o; wz = .14; dir = 'down'; }
+    if (key === 'w') { wx = B.W - .14; wz = p.wz + o; dir = 'left'; }
+    if (key === 'e') { wx = .14; wz = p.wz + o; dir = 'right'; }
+    await this.go(id, Math.floor(wx), Math.floor(wz), dir, null, false, { wx, wz });
     if (window.Monet) await Monet.interstitial('peta');
   },
   async flyTo(town, m) {
@@ -416,15 +624,14 @@ const World = {
     Snd.sfx('flute');
     await UI.say('{P} memainkan SERULING...');
     await wait(1.4);
-    const p = this.p, [dx, dy] = DIRS[p.dir];
-    const o = this.objAt(p.x + dx, p.y + dy);
+    const p = this.p, o = this.objNear(p.wx + Math.sin(p.ang) * .95, p.wz + Math.cos(p.ang) * .95, .85);
     if (o && o.def.flute) { await o.def.flute(o); return true; }
     await UI.say('Bunyinya sungguh merdu.');
     return true;
   },
   async fish() {
-    const p = this.p, [dx, dy] = DIRS[p.dir];
-    const t = this.tile(p.x + dx, p.y + dy);
+    const p = this.p;
+    const t = this.tile(Math.floor(p.wx + Math.sin(p.ang) * .9), Math.floor(p.wz + Math.cos(p.ang) * .9));
     if (!isWater(t)) { await UI.say('Tiada air di hadapan kamu.'); return false; }
     await UI.say('{P} melempar joran...');
     await wait(.8);
@@ -457,15 +664,32 @@ const World = {
   },
   // ---------- lukisan ----------
   draw() {
+    if (!this.map) return;
     if (R3.ok && R3.drawWorld()) { this.drawOverlay(); return; }
     this.draw2d();
     this.drawOverlay();
   },
   drawOverlay() {
     if (R3.ok) for (const o of this.objs) if (o.bang) {
-      const [sx, sy] = R3.project(o.px / 16 + .5, 1.75, o.py / 16 + .5);
+      const P = R3.project(o.px / 16 + .5, R3.hAt(o.px / 16 + .5, o.py / 16 + .5) + 1.75, o.py / 16 + .5); if (!P) continue;
+      const [sx, sy] = P;
       ctx.fillStyle = '#fff'; rr(sx - 14, sy - 40, 28, 40, 8); ctx.fill();
       txt('!', sx, sy - 40, { size: 44, align: 'center', color: '#e03030', shadow: false });
+    }
+    // gelembung "A" di atas sasaran yang boleh diajak berinteraksi
+    if (R3.ok && this.hint && !this.busy && Game.top() === this.scene) {
+      const h = this.hint; let wx, wz, wy;
+      if (h.o) { wx = h.o.px / 16 + .5; wz = h.o.py / 16 + .5; wy = h.o.def.s ? 1.5 : h.o.def.mon ? 1.6 : h.o.def.sign ? 1.05 : .8; }
+      else { wx = h.x + .5; wz = h.y + .5; wy = 1.15; }
+      const P = R3.project(wx, R3.hAt(wx, wz) + wy, wz);
+      if (P) {
+        const bob = Math.sin(Game.t * 5) * 4, x = P[0], y = P[1] - 30 + bob;
+        ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3;
+        ctx.fillStyle = '#fbf8ee'; ctx.beginPath(); ctx.arc(x, y, 22, 0, 7); ctx.fill(); ctx.restore();
+        ctx.strokeStyle = '#ec7468'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(x, y, 20, 0, 7); ctx.stroke();
+        ctx.fillStyle = '#fbf8ee'; ctx.beginPath(); ctx.moveTo(x - 7, y + 19); ctx.lineTo(x + 7, y + 19); ctx.lineTo(x, y + 28); ctx.fill();
+        txt('A', x, y - 15, { size: 34, align: 'center', color: '#c8324a', shadow: false });
+      }
     }
     if (this.banner) {
       const a = Math.min(1, this.banner.t * 2, (2.2 - this.banner.t) * 3);
@@ -478,6 +702,7 @@ const World = {
     }
   },
   draw2d() {
+    this.ensure2d();
     const p = this.p;
     const vw = SW / PX, vh = SH / PX;
     let cx = Math.round((p.px + 8 - vw / 2) * PX) / PX, cy = Math.round((p.py + 8 - vh / 2) * PX) / PX;

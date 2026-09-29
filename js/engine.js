@@ -19,6 +19,11 @@ const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const pick = arr => arr[rnd(arr.length)];
 const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
+// Sudut menghadap: 0 = ke bawah skrin (+z), lalu ikut arah jam. Digunakan oleh dunia 3D bebas bergerak.
+const ANG = { down: 0, right: Math.PI / 2, up: Math.PI, left: -Math.PI / 2 };
+const angOfDir = d => ANG[d] !== undefined ? ANG[d] : 0;
+const dirOfAng = a => { const sn = Math.sin(a), cs = Math.cos(a); return Math.abs(sn) > Math.abs(cs) ? (sn > 0 ? 'right' : 'left') : (cs > 0 ? 'down' : 'up'); };
+const angLerp = (a, b, k) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; else if (d < -Math.PI) d += Math.PI * 2; return a + d * k; };
 
 function layout() {
   const vw = innerWidth, vh = innerHeight;
@@ -32,7 +37,7 @@ function layout() {
   w = Math.floor(w); h = Math.floor(h);
   stage.style.width = w + 'px'; stage.style.height = h + 'px';
   if (PORTRAIT) { SW = 720; SH = Math.round(720 * h / w); } else { SH = 720; SW = Math.round(720 * w / h); }
-  UIK = Math.min(2.5, Math.max(1, (w * (devicePixelRatio || 1)) / SW));
+  UIK = Math.min(IS_TOUCH ? 1.5 : 2, Math.max(1, (w * (devicePixelRatio || 1)) / SW)); // kanvas UI: cukup tajam, jimat memori
   cv.width = Math.round(SW * UIK); cv.height = Math.round(SH * UIK);
   cv.style.width = w + 'px'; cv.style.height = h + 'px';
   INSET.b = INSET.l = INSET.r = INSET.t = 0;
@@ -47,14 +52,17 @@ layout();
 // ---------- Input ----------
 const Input = {
   held: {}, pressed: {}, enabled: true, rt: {}, joy: null,
+  // paksi analog (papan kekunci atau kayu bedik) untuk pergerakan bebas; drag/wheel untuk kamera
+  axis: { x: 0, y: 0 }, joyAxis: null, analog: false, drag: { x: 0, y: 0 }, wheel: 0,
   keymap: {
     ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left',
     ArrowRight: 'right', KeyD: 'right', KeyZ: 'a', Space: 'a', KeyJ: 'a', KeyX: 'b', Backspace: 'b',
-    Escape: 'b', KeyK: 'b', ShiftLeft: 'b', ShiftRight: 'b', Enter: 'start', KeyP: 'start'
+    Escape: 'b', KeyK: 'b', ShiftLeft: 'b', ShiftRight: 'b', Enter: 'start', KeyP: 'start',
+    KeyQ: 'camL', KeyE: 'camR', KeyC: 'camReset'
   },
   press(k) { if (!this.held[k]) { this.pressed[k] = true; this.rt[k] = 0; } this.held[k] = true; Snd.unlock(); },
   release(k) { this.held[k] = false; },
-  clear() { this.held = {}; this.pressed = {}; },
+  clear() { this.held = {}; this.pressed = {}; this.joyAxis = null; },
   tick(dt) {
     for (const k of ['up', 'down', 'left', 'right']) {
       if (this.held[k]) {
@@ -62,6 +70,14 @@ const Input = {
         if (this.rt[k] > 0.38) { this.pressed[k] = true; this.rt[k] -= 0.11; }
       }
     }
+    let ax = 0, ay = 0;
+    if (this.joyAxis) { ax = this.joyAxis.x; ay = this.joyAxis.y; this.analog = true; }
+    else {
+      this.analog = false;
+      if (this.held.left) ax -= 1; if (this.held.right) ax += 1; if (this.held.up) ay -= 1; if (this.held.down) ay += 1;
+      const l = Math.hypot(ax, ay); if (l > 1) { ax /= l; ay /= l; }
+    }
+    this.axis.x = ax; this.axis.y = ay;
   },
   dir() { for (const k of ['up', 'down', 'left', 'right']) if (this.held[k]) return k; return null; }
 };
@@ -79,8 +95,25 @@ addEventListener('keyup', e => { const k = Input.keymap[e.code]; if (k) Input.re
 Input.ptr = { x: -1, y: -1, tap: false, moved: false };
 (() => {
   const toUI = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * SW, y: (e.clientY - r.top) / r.height * SH }; };
-  cv.addEventListener('pointermove', e => { if (!Input.enabled) return; Object.assign(Input.ptr, toUI(e), { moved: true }); });
-  cv.addEventListener('pointerdown', e => { if (!Input.enabled) return; Snd.unlock(); Object.assign(Input.ptr, toUI(e), { tap: true, moved: true }); });
+  let dn = null; // penunjuk yang sedang ditekan: untuk memusing kamera dengan seretan
+  cv.addEventListener('pointermove', e => {
+    if (!Input.enabled) return;
+    Object.assign(Input.ptr, toUI(e), { moved: true });
+    if (dn && e.pointerId === dn.id) {
+      if (!dn.drag && Math.hypot(e.clientX - dn.x, e.clientY - dn.y) > 8) dn.drag = true;
+      if (dn.drag) { Input.drag.x += e.clientX - dn.lx; Input.drag.y += e.clientY - dn.ly; }
+      dn.lx = e.clientX; dn.ly = e.clientY;
+    }
+  });
+  cv.addEventListener('pointerdown', e => {
+    if (!Input.enabled) return; Snd.unlock();
+    Object.assign(Input.ptr, toUI(e), { tap: true, moved: true });
+    dn = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, drag: false };
+    try { cv.setPointerCapture(e.pointerId); } catch (err) { }
+  });
+  const up = e => { if (dn && e.pointerId === dn.id) dn = null; };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('wheel', e => { if (!Input.enabled) return; Input.wheel += e.deltaY; e.preventDefault(); }, { passive: false });
 })();
 addEventListener('blur', () => Input.clear());
 document.querySelectorAll('#touch [data-k]').forEach(b => {
@@ -110,12 +143,12 @@ document.querySelectorAll('#touch [data-k]').forEach(b => {
     const max = r.width * .38, len = Math.hypot(dx, dy);
     if (len > max) { dx *= max / len; dy *= max / len; }
     knob.style.transform = `translate(${dx}px, ${dy}px)`;
-    if (len < r.width * .12) setDir(null);
-    else setDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+    if (len < r.width * .12) { setDir(null); Input.joyAxis = { x: 0, y: 0 }; }
+    else { setDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up')); Input.joyAxis = { x: dx / max, y: dy / max }; }
   };
   base.addEventListener('pointerdown', e => { e.preventDefault(); id = e.pointerId; base.setPointerCapture(id); Snd.unlock(); move(e); });
   base.addEventListener('pointermove', e => { if (e.pointerId === id) move(e); });
-  const end = e => { if (e.pointerId !== id) return; id = null; knob.style.transform = ''; setDir(null); };
+  const end = e => { if (e.pointerId !== id) return; id = null; knob.style.transform = ''; setDir(null); Input.joyAxis = null; };
   base.addEventListener('pointerup', end); base.addEventListener('pointercancel', end);
 })();
 const muteBtn = document.getElementById('mute');
@@ -164,7 +197,7 @@ function frame(ts) {
   if (Game.fade > 0) { ctx.fillStyle = `rgba(4,6,14,${Game.fade})`; ctx.fillRect(0, 0, SW, SH); }
   if (window.Monet) Monet.drawBadge && Monet.drawBadge();
   Snd.tick();
-  Input.pressed = {}; Input.ptr.tap = false; Input.ptr.moved = false;
+  Input.pressed = {}; Input.ptr.tap = false; Input.ptr.moved = false; Input.drag.x = Input.drag.y = 0; Input.wheel = 0;
   requestAnimationFrame(frame);
 }
 

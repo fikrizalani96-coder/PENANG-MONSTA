@@ -4,14 +4,17 @@
 const V3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const M3 = {
   _g: null,
-  G() {
-    if (this._g) return this._g;
-    const g = this._g = {
-      sph: new THREE.SphereGeometry(1, 28, 20),
-      sphLo: new THREE.SphereGeometry(1, 14, 10),
-      cone: new THREE.ConeGeometry(1, 1, 20, 1),
-      cyl: new THREE.CylinderGeometry(1, 1, 1, 14, 1),
-      tor: new THREE.TorusGeometry(1, .09, 10, 40),
+  // geometri asas dikongsi; d = 1 butiran tinggi (pertarungan/pameran), d = 0 rendah (dunia terbuka: watak kecil di skrin)
+  G(d = 1) {
+    this._g = this._g || {};
+    if (this._g[d]) return this._g[d];
+    const S = d ? [28, 20, 14, 10, 20, 14, 40] : [12, 8, 8, 6, 10, 8, 20];
+    const g = this._g[d] = {
+      sph: new THREE.SphereGeometry(1, S[0], S[1]),
+      sphLo: new THREE.SphereGeometry(1, S[2], S[3]),
+      cone: new THREE.ConeGeometry(1, 1, S[4], 1),
+      cyl: new THREE.CylinderGeometry(1, 1, 1, S[5], 1),
+      tor: new THREE.TorusGeometry(1, .09, d ? 10 : 6, S[6]),
       dode: new THREE.DodecahedronGeometry(1, 0),
       ico: new THREE.IcosahedronGeometry(1, 1),
     };
@@ -94,7 +97,7 @@ const M3 = {
 
 // ---------- Pembina model ----------
 class Rig {
-  constructor() { this.root = new THREE.Group(); this.mats = []; this.eyes = []; this.flames = []; this.wings = []; this.tails = []; this.G = M3.G(); }
+  constructor(detail = 1) { this.root = new THREE.Group(); this.mats = []; this.eyes = []; this.flames = []; this.wings = []; this.tails = []; this.G = M3.G(detail); }
   mat(color, mo) { const m = M3.toon(color, mo); m.userData.base = { color: m.color.clone(), emissive: m.emissive.clone() }; this.mats.push(m); return m; }
   add(geo, color, pos, scl, o = {}) {
     const m = new THREE.Mesh(geo, this.mat(color, o.mo));
@@ -242,9 +245,9 @@ const MonModel = {
     const [m, s2, l, ex] = sp.c;
     return { M: m, S: s2, L: l, X: ex || s2, D: shade(m, -.26), SD: shade(s2, -.22), B: '#f1e8cf', Y: '#f8d848', O: '#f09838', R: '#e03838', K: '#2a2230' };
   },
-  build(name) {
+  build(name, detail = 1) {
     const sp = SP[name];
-    const r = new Rig(), P = this.pal(sp), F = new Set(sp.f || []);
+    const r = new Rig(detail), P = this.pal(sp), F = new Set(sp.f || []);
     const plan = sp.b === 'raksasa' ? 'tegak' : sp.b;
     const info = (this.plans[plan] || this.plans.blob).call(this, r, P, F) || {};
     const inner = r.finish({ size: 1.75 * sp.k, hover: info.hover });
@@ -644,9 +647,9 @@ const HumanModel = {
     const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
     return (this._face[look] = t);
   },
-  build(look) {
+  build(look, detail = 1) {
     const L = LOOKS[look] || LOOKS.budak;
-    const r = new Rig(), G = r.G;
+    const r = new Rig(detail), G = r.G;
     const player = /^(pemain|kostum)/.test(look);
     const body = new THREE.Group(); r.root.add(body);
     const hair = L.h || '#2a1a12', skin = L.s, shirt = L.c, pants = L.p;
